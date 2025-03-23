@@ -1,19 +1,23 @@
-# tests/test_compute.py
-
 import anndata as ad
-from scsilhouette.compute import compute_silhouette_score
+import pandas as pd
+import numpy as np
+from scsilhouette.compute import compute_silhouette_scores
 
-def test_silhouette_computation_on_real_data():
-    adata = ad.read_h5ad("data/test.h5ad")  # Replace with real path
-    result = compute_silhouette_score(
-        adata,
-        label_field="author_cell_type",
+def test_compute_silhouette():
+    obs = pd.DataFrame({
+        "cell_type": ["A"] * 10 + ["B"] * 10,
+        "author_cell_type": ["X"] * 5 + ["Y"] * 5 + ["Z"] * 10
+    })
+    X = np.random.rand(20, 5)
+    adata = ad.AnnData(X=X, obs=obs)
+    adata.obsm["X_pca"] = np.random.rand(20, 3)
+
+    result_df, summary_df = compute_silhouette_scores(
+        adata=adata,
+        label_fields=["cell_type", "author_cell_type"],
         embedding_key="X_pca"
     )
 
-    assert "cluster_header" in result
-    assert "mean_score" in result
-    assert "cluster_scores" in result
-    assert "cell_scores" in result
-    assert result["mean_score"] > 0  # sanity check
-    print("Mean silhouette score:", result["mean_score"])
+    assert "silhouette_score" in result_df.columns
+    assert summary_df.shape[0] >= 2  # At least 2 clusters
+
