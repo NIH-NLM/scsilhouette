@@ -1,0 +1,12 @@
+name: scsilhouette
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - scanpy
+  - pandas
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - pooch
+  - anndata

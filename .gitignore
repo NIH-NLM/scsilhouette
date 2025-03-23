@@ -1,0 +1,3 @@
+data/
+*.egg-info
+src/scsilhouette/__pycache__
