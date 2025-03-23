@@ -1,65 +1,39 @@
-import argparse
-import os
-import anndata as ad
-from scsilhouette.compute import compute_silhouette_score
-from scsilhouette.viz import (
-    plot_score_distribution,
-    plot_cluster_summary,
-    plot_cluster_size_vs_score
-)
+# src/scsilhouette/cli.py
+
+import click
+from scsilhouette.compute import run_silhouette
+from scsilhouette.viz import plot_all
 from scsilhouette.download import download_h5ad
 
-def main():
-    parser = argparse.ArgumentParser(description="Compute silhouette scores from an .h5ad file")
 
-    parser.add_argument("--input", "-i", help="Path to input .h5ad file")
-    parser.add_argument("--from-url", help="Download .h5ad from URL before running")
+@click.group()
+def cli():
+    """scSilhouette CLI for computing silhouette scores and generating plots."""
+    pass
 
-    parser.add_argument("--label-field", "-l", required=True, help="Field in .obs for cluster labels")
-    parser.add_argument("--embedding-key", "-e", default="X_pca", help="Key in .obsm for embedding (default: X_pca)")
-    parser.add_argument("--metadata-fields", "-m", default="", help="Comma-separated .obs fields to include in output")
-    parser.add_argument("--output-dir", "-o", default=".", help="Directory to write output files")
-    parser.add_argument("--no-plot", action="store_true", help="Disable plot generation")
 
-    args = parser.parse_args()
+@cli.command()
+@click.option("--h5ad-path", required=True, type=click.Path(exists=True), help="Path to .h5ad file")
+@click.option("--label-keys", required=True, multiple=True, help="One or more .obs label fields (e.g. cell_type)")
+@click.option("--embedding-key", default="X_pca", help="Key for embedding (e.g. X_pca, X_umap)")
+@click.option("--output-dir", default="results", type=click.Path(), help="Directory for saving output files")
+def compute(h5ad_path, label_keys, embedding_key, output_dir):
+    run_silhouette(h5ad_path, label_keys, embedding_key, output_dir)
 
-    if not args.input and not args.from_url:
-        raise ValueError("You must provide --input or --from-url")
 
-    if args.from_url:
-        print(f"[↓] Downloading .h5ad from {args.from_url}")
-        args.input = download_h5ad(args.from_url, args.output_dir)
-        print(f"[✓] Downloaded to: {args.input}")
+@cli.command()
+@click.option("--input-dir", default="results", type=click.Path(exists=True), help="Input directory with scores")
+def viz(input_dir):
+    plot_all(input_dir)
 
-    print(f"[🔍] Loading .h5ad file: {args.input}")
-    adata = ad.read_h5ad(args.input)
 
-    metadata_fields = [f.strip() for f in args.metadata_fields.split(",") if f.strip()]
+@cli.command()
+@click.option("--url", required=True, help="URL to download the H5AD file")
+@click.option("--output-dir", default="data", type=click.Path(), help="Download location")
+def download(url, output_dir):
+    download_h5ad(url, output_dir)
 
-    result = compute_silhouette_score(
-        adata,
-        label_field=args.label_field,
-        embedding_key=args.embedding_key,
-        metadata_fields=metadata_fields
-    )
-
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    out_scores = os.path.join(args.output_dir, "silhouette_output.csv")
-    out_summary = os.path.join(args.output_dir, "cluster_summary.csv")
-
-    result["cell_scores"].to_csv(out_scores, index=False)
-    result["cluster_summary"].to_csv(out_summary, index=False)
-
-    print(f"[✓] Saved: {out_scores}")
-    print(f"[✓] Saved: {out_summary}")
-    print(f"[✓] Mean silhouette score: {result['mean_score']:.4f}")
-
-    if not args.no_plot:
-        plot_score_distribution(result["cell_scores"], args.output_dir)
-        plot_cluster_summary(result["cluster_summary"], args.output_dir)
-        plot_cluster_size_vs_score(result["cluster_summary"], args.output_dir)
 
 if __name__ == "__main__":
-    main()
+    cli()
 
