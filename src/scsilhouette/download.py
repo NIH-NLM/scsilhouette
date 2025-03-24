@@ -2,18 +2,23 @@
 
 import os
 import pooch
+from urllib.parse import urlparse
 
-def download_h5ad(url: str, output_dir: str = "data") -> str:
+def get_filename_from_url(url: str) -> str:
+    return os.path.basename(urlparse(url).path)
+
+def download_h5ad(url: str, output_dir: str) -> str:
     os.makedirs(output_dir, exist_ok=True)
-    fname = os.path.join(output_dir, os.path.basename(url))
+    filename = get_filename_from_url(url)
 
-    print(f"Downloading file to: {fname}")
+    # Let pooch manage the full path under output_dir
     file_path = pooch.retrieve(
         url=url,
         known_hash=None,
-        fname=fname,
+        fname=filename,
         path=output_dir,
         progressbar=True,
     )
+
     return file_path
 

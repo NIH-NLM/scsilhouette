@@ -1,61 +1,85 @@
-from typing import Dict, Optional, List
+# src/scsilhouette/compute.py
+
+from pathlib import Path
+from typing import List, Optional
 import pandas as pd
-import numpy as np
 import anndata as ad
 from sklearn.metrics import silhouette_samples
+from . import viz
 
-def compute_silhouette_score(
-    adata: ad.AnnData,
-    label_field: str,
-    embedding_key: str = "X_pca",
-    metadata_fields: Optional[List[str]] = None
-) -> Dict:
-    if label_field not in adata.obs:
-        raise ValueError(f"Label field '{label_field}' not found in `.obs`.")
 
-    if embedding_key not in adata.obsm:
-        raise ValueError(f"Embedding key '{embedding_key}' not found in `.obsm`.")
+def run_silhouette(
+    h5ad_path: str,
+    label_keys: List[str],
+    embedding_key: str,
+    output_dir: str,
+    show_obs: bool = False,
+    save_scores: bool = False,
+    save_cluster_summary: bool = False,
+    save_csv: bool = False,
+    save_plots: bool = False,
+    qc_correlations: bool = False,
+    log_pca_dims: bool = False,
+) -> None:
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
 
-    X = adata.obsm[embedding_key]
-    labels = adata.obs[label_field].astype(str)
-    sil_scores = silhouette_samples(X, labels)
+    adata = ad.read_h5ad(h5ad_path)
 
-    cell_scores = pd.DataFrame({
-        "cell_id": adata.obs_names,
-        "label": labels,
-        "silhouette_score": sil_scores
-    }).set_index("cell_id")
+    if show_obs:
+        obs_preview = adata.obs.head(10)
+        obs_preview.to_csv(output_path / "obs_preview.csv")
+        print("[✓] Saved obs preview:", output_path / "obs_preview.csv")
 
-    metadata_fields = metadata_fields or []
-    for field in metadata_fields:
-        if field in adata.obs.columns:
-            cell_scores[field] = adata.obs[field]
+    if log_pca_dims:
+        dims = adata.obsm[embedding_key].shape[1]
+        dim_path = output_path / "embedding_dims.txt"
+        with open(dim_path, "w") as f:
+            f.write(f"Embedding: {embedding_key}, PCA dimensions: {dims}\n")
+        print("[✓] Saved PCA dimension info:", dim_path)
 
-    cell_scores.reset_index(inplace=True)
+    for label_key in label_keys:
+        embedding = adata.obsm[embedding_key]
+        labels = adata.obs[label_key].values
 
-    cluster_scores = (
-        cell_scores.groupby("label")["silhouette_score"]
-        .mean()
-        .to_dict()
-    )
+        silhouette_vals = silhouette_samples(embedding, labels)
+        cell_scores = adata.obs[[label_key]].copy()
+        cell_scores["silhouette_score"] = silhouette_vals
 
-    cluster_summary = (
-        cell_scores
-        .groupby("label")
-        .agg(
-            cluster_size=("silhouette_score", "count"),
-            mean_silhouette=("silhouette_score", "mean")
+        if save_scores:
+            score_path = output_path / f"{label_key}_scores.csv"
+            cell_scores.to_csv(score_path, index=False)
+            print(f"[✓] Saved: {score_path.name}")
+
+        cluster_summary = (
+            cell_scores.groupby(label_key)["silhouette_score"]
+            .agg(["mean", "median", "count"])
+            .reset_index()
+            .rename(
+                columns={
+                    "mean": "mean_silhouette_score",
+                    "median": "median_silhouette_score",
+                    "count": "n_cells",
+                }
+            )
         )
-        .sort_values("mean_silhouette", ascending=False)
-        .reset_index()
-    )
 
-    return {
-        "cluster_header": label_field,
-        "embedding_key": embedding_key,
-        "mean_score": float(np.mean(sil_scores)),
-        "cluster_scores": cluster_scores,
-        "cell_scores": cell_scores,
-        "cluster_summary": cluster_summary
-    }
+        if save_cluster_summary:
+            cluster_path = output_path / f"{label_key}_cluster_summary.csv"
+            cluster_summary.to_csv(cluster_path, index=False)
+            print(f"[✓] Saved: {cluster_path.name}")
+
+        if save_plots:
+            viz.plot_score_distribution(cell_scores, output_path, label_key)
+            viz.plot_cluster_summary(cluster_summary, output_path, label_key)
+            viz.plot_cluster_size_vs_score(cluster_summary, output_path, label_key)
+
+        if qc_correlations:
+            viz.plot_qc_boxplots(cell_scores, adata.obs, output_path, label_key)
+
+        if save_csv:
+            cluster_summary.to_csv(output_path / f"{label_key}_summary.csv", index=False)
+
+        viz.plot_all(cell_scores, cluster_summary, output_path, label_key)
+
 
