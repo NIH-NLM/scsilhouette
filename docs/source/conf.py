@@ -24,9 +24,19 @@ author = 'NIH/NLM'
 
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
+    'sphinx.ext.napoleon',   # for Google-style docstrings
     'sphinx.ext.viewcode',
+    'sphinx.ext.autosummary',
+    'myst_parser',           # <-- for Markdown support
 ]
+
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
+
+autosummary_generate = True  # auto-generate .rst files for modules
+
 
 templates_path = ['_templates']
 exclude_patterns = []
@@ -39,3 +49,14 @@ exclude_patterns = []
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+templates_path = ['_templates']
+
+html_theme_options = {
+    "navigation_with_keys": True,
+    "navigation_depth": 4,
+    "collapse_navigation": False,
+    "canonical_url": "https://nih-nlm.github.io/scsilhouette.github.io/"
+}
+
+html_baseurl = "https://nih-nlm.github.io/scsilhouette.github.io"
+html_extra_path = ['_static']
