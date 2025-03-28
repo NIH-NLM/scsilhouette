@@ -1,5 +1,5 @@
 scsilhouette.cli module
-========================
+=======================
 
 .. automodule:: scsilhouette.cli
    :members:

@@ -1,7 +1,7 @@
-scsilhouette.download module
+scsilhouette.nsforest module
 ============================
 
-.. automodule:: scsilhouette.download
+.. automodule:: scsilhouette.nsforest
    :members:
    :undoc-members:
    :show-inheritance:

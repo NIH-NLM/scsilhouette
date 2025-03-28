@@ -1,5 +1,5 @@
 scsilhouette.compute module
-============================
+===========================
 
 .. automodule:: scsilhouette.compute
    :members:

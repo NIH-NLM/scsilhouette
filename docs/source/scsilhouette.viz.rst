@@ -1,5 +1,5 @@
 scsilhouette.viz module
-========================
+=======================
 
 .. automodule:: scsilhouette.viz
    :members:

@@ -2,9 +2,6 @@ scsilhouette
 ============
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
 
-   scsilhouette.cli
-   scsilhouette.compute
-   scsilhouette.download
-   scsilhouette.viz
+   scsilhouette
