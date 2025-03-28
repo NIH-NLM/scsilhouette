@@ -39,7 +39,7 @@ jobs:
 
       - name: Build documentation with Sphinx
         run: |
-	  conda init
+	  conda init bash
           conda activate scsilhouette
           sphinx-apidoc -f -o docs/source/ src/scsilhouette
           make -C docs html
