@@ -2,11 +2,9 @@ name: Build and Deploy Sphinx Documentation
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
@@ -38,29 +36,29 @@ jobs:
           auto-activate-base: false
 
       - name: Build documentation with Sphinx
+        shell: bash -l {0}
         run: |
-          conda init bash
           conda activate scsilhouette
           sphinx-apidoc -f -o docs/source/ src/scsilhouette
           make -C docs html
 
       - name: Upload built documentation
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v1
         with:
           path: docs/build/html
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
 
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v2
+
