@@ -43,7 +43,7 @@ jobs:
           make -C docs html
 
       - name: Upload built documentation
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
           path: docs/build/html
 
