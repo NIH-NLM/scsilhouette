@@ -21,6 +21,7 @@ dependencies:
   - sphinx
   - sphinx-rtd-theme
   - sphinx-autodoc-typehints
+  - myst-parser
   - nextflow
 
   # R Kernel and R dependencies
