@@ -27,6 +27,7 @@ extensions = [
     'sphinx.ext.napoleon',   # for Google-style docstrings
     'sphinx.ext.viewcode',
     'sphinx.ext.autosummary',
+    'sphinx.ext.intersphinx',
     'myst_parser',           # <-- for Markdown support
 ]
 

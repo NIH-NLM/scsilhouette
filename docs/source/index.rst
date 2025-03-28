@@ -15,8 +15,11 @@ Welcome to scsilhouette's documentation!
 
    process
    modules
-   README <../../README.md>
-
+   click
+   
+.. include:: README.md
+   :parser: myst_parser.sphinx_
+	
 Command-line Interface
 ======================
 

@@ -1,0 +1,6 @@
+- name: Install Sphinx and deps
+  run: |
+    pip install sphinx sphinx-rtd-theme myst-parser click
+
+- name: Autogenerate API docs with sphinx-apidoc
+  run: sphinx-apidoc -f --separate -o docs/source/ src/scsilhouette
