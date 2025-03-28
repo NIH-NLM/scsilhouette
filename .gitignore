@@ -1,6 +1,5 @@
 .DS_Store
 *.egg-info
-docs/build/*
 data/
 results/
 src/scsilhouette/__pycache__
