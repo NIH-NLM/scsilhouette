@@ -1,46 +1,47 @@
-name: docs
+name: Build and Deploy Sphinx Documentation
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  build-docs:
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Conda
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Set up Conda with environment.yml
         uses: conda-incubator/setup-miniconda@v2
         with:
-          auto-update-conda: true
           environment-file: environment.yml
           activate-environment: scsilhouette
-          python-version: "3.9"
+          auto-activate-base: false
 
-      - name: Confirm Python/Conda environment
-        run: |
-          which python
-          conda info
-          conda list
-
-      - name: Install Sphinx extras
+      - name: Build documentation with Sphinx
         run: |
           conda activate scsilhouette
-          pip install sphinx_rtd_theme myst-parser
-
-      - name: Regenerate Sphinx API docs
-        run: |
           sphinx-apidoc -f -o docs/source/ src/scsilhouette
-
-      - name: Build Sphinx HTML
-        run: |
-          cd docs
-          make html
+          make -C docs html
 
       - name: Upload built documentation
         uses: actions/upload-pages-artifact@v2
@@ -48,13 +49,17 @@ jobs:
           path: docs/build/html
 
   deploy:
-    needs: build-docs
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       pages: write
       id-token: write
 
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v1
-
+        id: deployment
+        uses: actions/deploy-pages@v2
