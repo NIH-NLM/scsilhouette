@@ -1,13 +1,46 @@
-name: scsilhouette
+name: scrnaseq_silhouette
 channels:
   - conda-forge
+  - bioconda
+  - defaults
+  - r
 dependencies:
-  - python=3.10
-  - scanpy
+  # Python dependencies
+  - python=3.9
+  - emacs
+  - numpy
   - pandas
+  - pooch
+  - scanpy
+  - scikit-learn
+  - requests
+  - jupyterlab
+  - ipykernel
   - matplotlib
   - seaborn
-  - scikit-learn
-  - pooch
-  - anndata
-  - click
+  - sphinx
+  - sphinx-rtd-theme
+  - sphinx-autodoc-typehints
+  - nextflow
+
+  # R Kernel and R dependencies
+  - r-base
+  - r-irkernel
+  - r-tidyverse
+  - r-seurat
+  - r-ggplot2
+  - r-dplyr
+  - r-matrix
+  - r-devtools
+
+  # Bash Kernel
+  - bash_kernel
+
+  # Additional utilities
+  - pip
+  - pip:
+      - jupyterlab-git
+      - jsonpath_ng
+      - pdfkit
+      - jinja2
+      - weasyprint

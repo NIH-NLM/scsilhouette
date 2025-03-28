@@ -74,6 +74,7 @@ def compute_fscore_correlation(
     label_col: str,
     output_dir: str,
 ) -> tuple[pd.DataFrame, float]:
+
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     merged = silhouette_summary_df.merge(

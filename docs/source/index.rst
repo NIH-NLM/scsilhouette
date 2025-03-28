@@ -17,6 +17,19 @@ Welcome to scsilhouette's documentation!
    modules
    README <../../README.md>
 
+Command-line Interface
+======================
+
+.. code-block:: bash
+
+   scsilhouette --help
+
+.. code-block:: bash
+
+   scsilhouette compute --help
+
+   scsilhouette download --help
+
 
 Indices and tables
 ==================
