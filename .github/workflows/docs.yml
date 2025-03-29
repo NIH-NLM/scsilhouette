@@ -30,6 +30,7 @@ jobs:
         shell: bash -l {0}
         run: |
           conda activate scsilhouette
+          pip install myst-parser sphinx_rtd_theme
           sphinx-apidoc -f -o docs/source/ src/scsilhouette
           make -C docs html
 
