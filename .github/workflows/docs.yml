@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,11 +23,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
       - name: Set up Conda with environment.yml
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -26,17 +30,37 @@ jobs:
           activate-environment: scsilhouette
           auto-activate-base: false
 
-      - name: Build documentation with Sphinx
+      - name: Install any missing packages (optional)
         shell: bash -l {0}
         run: |
           conda activate scsilhouette
-          pip install myst-parser sphinx_rtd_theme
+          python -m pip install myst-parser sphinx
+
+      - name: Build HTML docs with Sphinx
+        shell: bash -l {0}
+        run: |
+          conda activate scsilhouette
           sphinx-apidoc -f --separate -o docs/source/ src/scsilhouette
           make -C docs html
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/build/html
+          path: docs/build/html
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
 
