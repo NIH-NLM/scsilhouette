@@ -43,6 +43,31 @@ def run_viz_command(summary_csv, scores_csv, label, output_dir):
     cell_scores = pd.read_csv(scores_csv)
     viz.plot_all(cluster_summary, cell_scores, output_dir, label)
 
+@click.group()
+def viz():
+    """Visualization commands."""
+    pass
+
+
+@viz.command('fscore-corr')
+@click.option('--fscore-csv', required=True, type=click.Path(exists=True), help='Path to NSForest F-score CSV')
+@click.option('--silhouette-csv', required=True, type=click.Path(exists=True), help='Path to silhouette scores CSV')
+@click.option('--output-dir', required=True, type=click.Path(), help='Directory to save plot and correlation CSV')
+@click.option('--label-key', required=True, type=str, help='Label column name used for clustering')
+@click.option('--score-type', default='silhouette_score_euclidean',
+              type=click.Choice(['silhouette_score_euclidean', 'silhouette_score_cosine']),
+              help='Silhouette score type to use')
+def fscore_corr(fscore_csv, silhouette_csv, output_dir, label_key, score_type):
+    """Compute and plot correlation between NS-Forest F-score and silhouette score."""
+    from scsilhouette.viz import plot_fscore_vs_silhouette
+
+    fscore_df = pd.read_csv(fscore_csv)
+    silhouette_df = pd.read_csv(silhouette_csv)
+
+    plot_fscore_vs_silhouette(fscore_df, silhouette_df, output_dir, label_key, score_col=score_type)
+
+    click.echo(f"[✓] Correlation plot and CSV saved to: {output_dir}")
+
 if __name__ == "__main__":
     main()
 

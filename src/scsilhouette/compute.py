@@ -69,19 +69,36 @@ def run_silhouette(
 
 
 def compute_fscore_correlation(
-    silhouette_summary_df: pd.DataFrame,
+    silhouette_df: pd.DataFrame,
     nsforest_df: pd.DataFrame,
     label_col: str,
     output_dir: str,
-) -> tuple[pd.DataFrame, float]:
+    score_col: str = "mean_silhouette_score",
+    fscore_col: str = "F-score",
+    distance_metric: str = "euclidean"
+):
+    """
+    Computes and saves correlation between silhouette score and NS-Forest F-score.
+    Saves a CSV summary: cluster, silhouette score, F-score, distance metric, correlation.
+    """
 
+    from pathlib import Path
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    merged = silhouette_summary_df.merge(
-        nsforest_df, how="inner", left_on=label_col, right_on="cluster"
+    # Align on cluster name
+    merged = silhouette_df[[label_col, score_col]].merge(
+        nsforest_df[["cluster", fscore_col]],
+        left_on=label_col, right_on="cluster"
     )
-    corr = merged["mean_silhouette_score"].corr(merged["f_score"])
-    merged.to_csv(Path(output_dir) / "fscore_correlation.csv", index=False)
-    print(f"[✓] Correlation: {corr:.3f} saved to fscore_correlation.csv")
-    return merged, corr
 
+    corr = merged[score_col].corr(merged[fscore_col])
+
+    # Save annotated results
+    merged["distance_metric"] = distance_metric
+    merged["correlation"] = corr
+
+    out_csv = Path(output_dir) / f"fscore_correlation_{score_col}_{distance_metric}.csv"
+    merged.to_csv(out_csv, index=False)
+    print(f"[✓] Correlation: {corr:.3f} saved to {out_csv.name}")
+
+    return merged, corr
