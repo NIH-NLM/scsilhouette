@@ -1,104 +1,77 @@
+# src/scsilhouette/compute.py
+import os
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import scanpy as sc
 from sklearn.metrics import silhouette_samples
-from pathlib import Path
+from sklearn.metrics.pairwise import cosine_distances
+from . import viz, nsforest
+
+
+def compute_silhouette_scores(adata, label_key, embedding_key, metric="euclidean"):
+    X = adata.obsm[embedding_key]
+    labels = adata.obs[label_key]
+    if metric == "cosine":
+        dist_matrix = cosine_distances(X)
+        scores = silhouette_samples(dist_matrix, labels, metric="precomputed")
+    else:
+        scores = silhouette_samples(X, labels, metric=metric)
+    return pd.DataFrame({"cell_id": adata.obs_names, label_key: labels, f"silhouette_score_{metric}": scores})
 
 
 def run_silhouette(
     h5ad_path: str,
-    label_keys: list,
+    label_keys: list[str],
     embedding_key: str,
     output_dir: str,
     show_obs: bool = False,
     save_scores: bool = False,
     save_cluster_summary: bool = False,
-    compute_qc: bool = False,
+    save_csv: bool = False,
+    save_plots: bool = False,
+    qc_correlations: bool = False,
+    nsforest_path: str = None,
 ):
-    import warnings
-    warnings.simplefilter("ignore")
-
     adata = sc.read_h5ad(h5ad_path)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     if show_obs:
-        adata.obs.head().to_csv(Path(output_dir) / "obs_preview.csv")
-        print(f"[✓] Saved obs preview: {Path(output_dir) / 'obs_preview.csv'}")
-
-    X = adata.obsm[embedding_key]
-    results = {}
+        obs_preview = adata.obs.head()
+        obs_preview.to_csv(Path(output_dir) / "obs_preview.csv")
+        print(f"[✓] Saved obs preview: {output_dir}/obs_preview.csv")
 
     for label_key in label_keys:
-        if label_key not in adata.obs:
-            print(f"[!] Label '{label_key}' not found in obs. Skipping.")
-            continue
+        for metric in ["euclidean", "cosine"]:
+            cell_scores = compute_silhouette_scores(adata, label_key, embedding_key, metric=metric)
 
-        labels = adata.obs[label_key]
-        cell_scores = pd.DataFrame(index=adata.obs_names)
-        cell_scores[label_key] = labels
-        cell_scores["silhouette_score"] = silhouette_samples(X, labels)
+            if save_scores:
+                score_path = Path(output_dir) / f"{label_key}_scores_{metric}.csv"
+                cell_scores.to_csv(score_path, index=False)
+                print(f"[✓] Saved: {score_path.name}")
 
-        cluster_summary = (
-            cell_scores.groupby(label_key)["silhouette_score"]
-            .agg(["mean", "std", "median", "min", "max", "count"])
-            .rename(columns={
-                "mean": "mean_silhouette_score",
-                "std": "std_silhouette_score",
-                "median": "median_silhouette_score",
-                "min": "min_silhouette_score",
-                "max": "max_silhouette_score",
-                "count": "n_cells"
-            })
-            .reset_index()
-        )
+            if save_cluster_summary:
+                cluster_summary = (
+                    cell_scores.groupby(label_key)[f"silhouette_score_{metric}"]
+                    .agg(["mean", "median", "std", "count"])
+                    .reset_index()
+                )
+                summary_path = Path(output_dir) / f"{label_key}_cluster_summary_{metric}.csv"
+                cluster_summary.to_csv(summary_path, index=False)
+                print(f"[✓] Saved: {summary_path.name}")
 
-        if save_scores:
-            cell_scores.to_csv(Path(output_dir) / f"{label_key}_scores.csv", index=False)
-            print(f"[✓] Saved: {label_key}_scores.csv")
+                if save_plots:
+                    viz.plot_all(cluster_summary, output_dir, label_key, suffix=metric)
 
-        if save_cluster_summary:
-            cluster_summary.to_csv(Path(output_dir) / f"{label_key}_cluster_summary.csv", index=False)
-            print(f"[✓] Saved: {label_key}_cluster_summary.csv")
+            if qc_correlations:
+                viz.plot_qc_boxplots(adata, cell_scores, output_dir, label_key, metric=metric)
 
-        results[label_key] = {
-            "cell_scores": cell_scores,
-            "cluster_summary": cluster_summary,
-        }
+            if nsforest_path:
+                fscore_df = nsforest.read_nsforest_csv(nsforest_path)
+                silhouette_df = cell_scores[[label_key, f"silhouette_score_{metric}"]].rename(
+                    columns={f"silhouette_score_{metric}": "silhouette_score"}
+                )
+                viz.plot_fscore_vs_silhouette(
+                    fscore_df, silhouette_df, output_dir, label_key, score_col="silhouette_score"
+                )
 
-    return results
-
-
-def compute_fscore_correlation(
-    silhouette_df: pd.DataFrame,
-    nsforest_df: pd.DataFrame,
-    label_col: str,
-    output_dir: str,
-    score_col: str = "mean_silhouette_score",
-    fscore_col: str = "F-score",
-    distance_metric: str = "euclidean"
-):
-    """
-    Computes and saves correlation between silhouette score and NS-Forest F-score.
-    Saves a CSV summary: cluster, silhouette score, F-score, distance metric, correlation.
-    """
-
-    from pathlib import Path
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-
-    # Align on cluster name
-    merged = silhouette_df[[label_col, score_col]].merge(
-        nsforest_df[["cluster", fscore_col]],
-        left_on=label_col, right_on="cluster"
-    )
-
-    corr = merged[score_col].corr(merged[fscore_col])
-
-    # Save annotated results
-    merged["distance_metric"] = distance_metric
-    merged["correlation"] = corr
-
-    out_csv = Path(output_dir) / f"fscore_correlation_{score_col}_{distance_metric}.csv"
-    merged.to_csv(out_csv, index=False)
-    print(f"[✓] Correlation: {corr:.3f} saved to {out_csv.name}")
-
-    return merged, corr
