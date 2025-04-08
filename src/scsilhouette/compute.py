@@ -61,7 +61,13 @@ def run_silhouette(
                 print(f"[✓] Saved: {summary_path.name}")
 
                 if save_plots:
-                    viz.plot_all(cluster_summary, output_dir, label_key, suffix=metric)
+                    viz.plot_all(
+                        cluster_summary=cluster_summary,
+                        output_dir=output_dir,
+                        label=label_key,
+                        score_col=f"silhouette_score_{metric}",  # e.g. 'silhouette_score_euclidean'
+                        suffix=metric
+                    )
 
             if qc_correlations:
                 viz.plot_qc_boxplots(adata, cell_scores, output_dir, label_key, metric=metric)
