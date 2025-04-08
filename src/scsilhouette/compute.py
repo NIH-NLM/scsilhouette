@@ -63,9 +63,10 @@ def run_silhouette(
                 if save_plots:
                     viz.plot_all(
                         cluster_summary=cluster_summary,
+                        cell_scores=cell_scores,
                         output_dir=output_dir,
                         label=label_key,
-                        score_col=f"silhouette_score_{metric}",  # e.g. 'silhouette_score_euclidean'
+                        score_col=f"silhouette_score_{metric}",
                         suffix=metric
                     )
 
