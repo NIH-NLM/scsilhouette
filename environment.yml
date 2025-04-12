@@ -7,7 +7,6 @@ channels:
 dependencies:
   # Python dependencies
   - python=3.9
-  - emacs
   - numpy
   - pandas
   - pooch
@@ -21,6 +20,7 @@ dependencies:
   - sphinx
   - sphinx-rtd-theme
   - sphinx-autodoc-typehints
+  - typer
   - myst-parser
   - nextflow
 
