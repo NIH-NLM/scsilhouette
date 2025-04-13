@@ -7,7 +7,6 @@ import scanpy as sc
 from sklearn.metrics import silhouette_samples
 from typing import Optional, List
 from .nsforest import load_nsforest_binary_genes
-from . import viz
 
 
 def compute_silhouette_scores(adata, label_key, embedding_key, metric="euclidean", gene_set: Optional[List[str]] = None):
@@ -88,5 +87,4 @@ def run_silhouette(
 
         if qc_correlations and fscore_df is not None:
             fscore_out = os.path.join(output_dir, f"{label_key}_fscore_vs_silhouette_{metric}_corr.csv")
-            viz.plot_fscore_vs_silhouette(fscore_df, cluster_summary, output_dir, label_key, f"silhouette_score_{metric}")
             print(f"[✓] QC Correlation saved to {fscore_out}")
