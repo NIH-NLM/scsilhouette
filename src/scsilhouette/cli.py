@@ -1,3 +1,4 @@
+
 from pathlib import Path
 import typer
 from scsilhouette import compute, viz, download
@@ -41,7 +42,7 @@ def viz_command(
     output_dir: Path = typer.Option("results"),
     label_key: str = typer.Option(...),
     score_col: str = typer.Option(...),
-    suffix: str = typer.Option("")
+    suffix: str = typer.Option(""),
 ):
     viz.plot_all(
         cluster_summary_path=str(cluster_summary_file),
@@ -52,10 +53,27 @@ def viz_command(
         suffix=suffix,
     )
 
+@app.command("viz-fscore")
+def viz_fscore_command(
+    fscore_path: Path = typer.Option(...),
+    cluster_summary_path: Path = typer.Option(...),
+    output_dir: Path = typer.Option("results"),
+    label: str = typer.Option(...),
+    score_col: str = typer.Option(...),
+    suffix: str = typer.Option(""),
+):
+    viz.plot_fscore_vs_silhouette(
+        fscore_path=str(fscore_path),
+        cluster_summary_path=str(cluster_summary_path),
+        output_dir=str(output_dir),
+        label=label,
+        score_col=score_col,
+        suffix=suffix,
+    )
+
 @app.command("download")
 def download_command():
-    download.download_example_data()
+    download.fetch_data()
 
 def main():
     app()
-
