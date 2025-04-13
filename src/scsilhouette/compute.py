@@ -37,7 +37,6 @@ def run_silhouette(
     save_scores: bool = False,
     save_cluster_summary: bool = False,
     save_csv: bool = False,
-    save_plots: bool = False,
     qc_correlations: bool = False,
     show_obs: bool = False,
 ):
@@ -86,9 +85,6 @@ def run_silhouette(
         if save_cluster_summary:
             cluster_summary.to_csv(os.path.join(output_dir, f"{label_key}_cluster_summary_{metric}.csv"), index=False)
             print(f"[✓] Saved: {label_key}_cluster_summary_{metric}.csv")
-
-        if save_plots:
-            viz.plot_all(cluster_summary, output_dir, label_key, cell_scores, f"silhouette_score_{metric}", suffix)
 
         if qc_correlations and fscore_df is not None:
             fscore_out = os.path.join(output_dir, f"{label_key}_fscore_vs_silhouette_{metric}_corr.csv")
