@@ -1,3 +1,18 @@
+[project]
+name = "scsilhouette"
+version = "0.1.0"
+description = "Silhouette scoring and quality assessment for single-cell RNA-seq datasets"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+  { name = "Yun (Renee) Zhang, PhD", email =  "yun.zhang@nih.gov" },
+  { name = "Ajith Viswanathan Asari Pankajam, PhD", email =  "ajith.viswanathanasaripankajam@nih.gov" },
+  { name = "Richard Scheuermann, PhD", email = "richard.scheuermann@nih.gov" },
+  { name = "Anne Deslattes Mays, PhD", email = "adeslat@scitechcon.org" }
+]
+requires-python = ">=3.8"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+[project.scripts]
+scsilhouette = "scsilhouette.cli:main"

@@ -66,7 +66,7 @@ def run_silhouette(
 
         cluster_summary = (
             cell_scores.groupby(label_key)[f"silhouette_score_{metric}"]
-            .agg(["mean", "std", "count"])
+            .agg(["median", "mean", "std", "count"])
             .reset_index()
             .rename(columns={
                 "mean": f"mean_silhouette_{metric}",
