@@ -1,95 +1,113 @@
 # scsilhouette
 
-[![Docs Status](https://img.shields.io/badge/docs-online-success)](https://nih-nlm.github.io/scsilhouette.github.io/)
-[![CI Docs](https://github.com/NIH-NLM/scsilhouette.github.io/actions/workflows/docs.yml/badge.svg)](https://github.com/NIH-NLM/scsilhouette.github.io/actions/workflows/docs.yml)
-[![License](https://img.shields.io/github/license/NIH-NLM/scsilhouette.github.io)](https://github.com/NIH-NLM/scsilhouette.github.io/blob/main/LICENSE)
+![Docs Status](https://img.shields.io/badge/docs-online-success)
+![License](https://img.shields.io/github/license/NIH-NLM/scsilhouette)
 
-Silhouette scoring and quality assessment for single-cell RNA-seq datasets.
+Silhouette scoring and F-score correlation for single-cell RNA-seq cluster validation.
 
 ---
 
 ## 🔧 Features
 
-- Download `.h5ad` datasets
-- Compute silhouette scores for multiple label keys
-- Visualize cluster score distributions, summaries, QC boxplots
-- Correlate silhouette scores with NS-Forest F-scores
-- CLI-based, modular, and Nextflow-ready
-- Auto-built documentation using GitHub Actions
+- Compute silhouette scores from `.h5ad` files
+- Summarize silhouette stats per cluster
+- Visualize F-score vs silhouette correlation
+- Overlay NS-Forest F-scores using manual mappings
+- Export merged summary stats for downstream analysis
 
 ---
 
-## 📦 Install
+## 📦 Installation
 
 ```bash
-git clone https://github.com/NIH-NLM/scsilhouette.github.io
-cd scsilhouette.github.io
+git clone https://github.com/NIH-NLM/scsilhouette
+cd scsilhouette
 conda env create -f environment.yml
 conda activate scsilhouette
 pip install -e .
 ```
 
-## 🚀 Command Line Examples
+---
 
-### Download
+## 🚀 Command Line Usage
 
-```bash
-scsilhouette download \
-  --url https://datasets.cellxgene.cziscience.com/example.h5ad \
-  --output-dir ./data
-```
-
-### Compute
+### Compute Silhouette
 
 ```bash
-scsilhouette compute \
-  --h5ad-path data/example.h5ad \
-  --label-keys cell_type author_cell_type \
-  --embedding-key X_pca \
+scsilhouette compute-silhouette \
+  --h5ad-path data/sample.h5ad \
+  --label-keys cell_type \
+  --embedding-key X_umap \
   --output-dir results/ \
-  --show-obs \
-  --qc-correlations \
-  --save-scores \
-  --save-cluster-summary \
-  --save-csv \
-  --save-plots
+  --save-scores --save-cluster-summary
 ```
 
-### F-Score Correlation
+### Visualize Summary
 
 ```bash
-scsilhouette correlate-fscore \
-  --silhouette-csv results/cell_type_scores.csv \
-  --fscore-csv nsforest/cell_type_fscore.csv \
-  --output-dir results/
+scsilhouette viz-summary \
+  --silhouette-score-path results/cell_type_silhouette_scores.csv \
+  --output-dir results/ \
+  --label cell_type \
+  --score-col silhouette_score_euclidean \
+  --fscore-path data/nsforest_scores.csv \
+  --mapping-path data/cell_type_cluster_map.csv \
+  --show
 ```
+
+![Summary Bar Chart](docs/source/_static/cell_type_summary_silhouette_score_euclidean_.png)
+
+### Visualize F-score Correlation
+
+```bash
+scsilhouette viz-fscore \
+  --fscore-path data/nsforest_scores.csv \
+  --cluster-summary-path results/cell_type_cluster_summary.csv \
+  --output-dir results/ \
+  --label cell_type \
+  --score-col silhouette_score_euclidean \
+  --silhouette-stat median \
+  --mapping-path data/cell_type_cluster_map.csv \
+  --suffix smoke \
+  --show --export-csv
+```
+
+![F-score Correlation](docs/source/_static/cell_type_fscore_vs_median_smoke.png)
+
+---
+
+## 🧠 Quadrant Interpretation
+
+| Quadrant | Meaning                                                                 |
+|----------|-------------------------------------------------------------------------|
+| Q1       | 💡 High Silhouette, High F-score → Good clustering & markers            |
+| Q2       | ⚠️ High Silhouette, Low F-score → Well-separated clusters, weak markers |
+| Q3       | 🚧 Low Silhouette, Low F-score → Poor clustering and weak markers       |
+| Q4       | 🤔 Low Silhouette, High F-score → Good markers, weak clustering         |
+
+---
 
 ## 📄 Documentation
 
-📘 Docs: https://nih-nlm.github.io/scsilhouette.github.io
+Full API and CLI documentation is auto-generated with [Sphinx](https://www.sphinx-doc.org/) using `autodoc`, `autosummary`, and `literalinclude` for CLI help injection.
 
-To build locally:
+Deployed using [GitHub Pages](https://pages.github.com/) at:
 
-```bash
-sphinx-apidoc -f --separate -o docs/source/ src/scsilhouette
-make -C docs html
-open docs/build/html/index.html
-```
+🔗 https://nih-nlm.github.io/scsilhouette/
 
-## 🧪 Run Tests
+All rendered figures used in this README are stored under `docs/source/_static/` and referenced within reStructuredText files for Sphinx processing.
+
+---
+
+## 🧪 Testing (Coming Soon)
 
 ```bash
 pytest tests/
 ```
 
-## 🧠 About
+---
 
-This package supports reproducible evaluation of cell clustering quality in scRNA-seq data, with direct comparison to NS-Forest marker gene-based F-scores.
+## 📄 License
 
-## 📤 GitHub Pages Deployment
-CI deploys docs from docs/build/html via GitHub Actions (.github/workflows/docs.yml) on every push to main.
-
-## 📜 License
-MIT License. © National Library of Medicine, NIH.
-
+MIT License © National Library of Medicine, NIH
 
