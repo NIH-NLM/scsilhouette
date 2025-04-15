@@ -1,6 +1,8 @@
+# src/scsilhouette/cli.py
+
 import typer
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
 import pandas as pd
 from . import viz, compute, download, nsforest
 
@@ -56,14 +58,14 @@ def viz_summary_command(
     mapping_path: Optional[Path] = typer.Option(None)
 ):
     viz.plot_silhouette_summary(
-        silhouette_score_path,
-        output_dir,
-        label,
-        score_col,
-        suffix,
-        show,
-        str(fscore_path) if fscore_path else None,
-        str(mapping_path) if mapping_path else None,
+        silhouette_score_path=str(silhouette_score_path),
+        output_dir=str(output_dir),
+        label=label,
+        score_col=score_col,
+        suffix=suffix,
+        show=show,
+        fscore_path=str(fscore_path) if fscore_path else None,
+        mapping_path=str(mapping_path) if mapping_path else None,
     )
 
 @app.command("viz-fscore")
@@ -92,6 +94,7 @@ def viz_fscore_command(
         export_csv=export_csv,
         mapping_path=str(mapping_path) if mapping_path else None,
         summary_path=str(summary_path) if summary_path else None,
+        silhouette_stat=silhouette_stat
     )
 
 @app.command("nsforest-validate")
