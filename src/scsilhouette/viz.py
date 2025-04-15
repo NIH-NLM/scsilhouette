@@ -1,3 +1,5 @@
+# src/scsilhouette/viz.py
+
 import os
 from pathlib import Path
 from typing import Optional
@@ -42,13 +44,14 @@ def plot_silhouette_summary(
         ax.bar(x + 0.2, grouped["f_score"], width=0.4, label="F-score", color="orange")
 
     ax.errorbar(x - 0.2, grouped["mean"], yerr=grouped["std"], fmt='o', color='black', capsize=5)
-
     ax.scatter(x - 0.2, grouped["median"], color='red', zorder=5)
 
     for i, row in grouped.iterrows():
+        # Mean & Median for silhouette
         ax.text(i - 0.2, row["mean"] + row["std"] + 0.02, f"μ={row['mean']:.2f}", ha="center", fontsize=7)
         ax.text(i - 0.2, row["median"] + 0.02, f"M={row['median']:.2f}", ha="center", fontsize=7)
-        if "f_score" in grouped.columns and not pd.isna(row["f_score"]):
+        # F-score if available
+        if "f_score" in row and not pd.isna(row["f_score"]):
             ax.text(i + 0.2, row["f_score"] + 0.02, f"F={row['f_score']:.2f}", ha="center", fontsize=7)
 
     ax.set_xticks(x)
@@ -56,12 +59,6 @@ def plot_silhouette_summary(
     ax.set_ylabel("Silhouette / F-score")
     ax.set_title(f"Silhouette Summary with F-score per {label}")
     ax.legend()
-
-    # Annotate F-score and Silhouette bars
-    for i, fscore in enumerate(grouped["f_score"]):
-        # F-score label above F-score bar
-        if not pd.isna(fscore):
-            ax.text(i + 0.2, fscore + 0.02, f"F={fscore:.2f}", ha="center", va="bottom", fontsize=7)
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     fig.savefig(os.path.join(output_dir, f"{label}_summary_{score_col}{suffix}.png"), bbox_inches="tight")
