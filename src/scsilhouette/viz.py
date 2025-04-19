@@ -1,12 +1,11 @@
 # src/scsilhouette/viz.py
-
 import os
 from pathlib import Path
 from typing import Optional
-
-import matplotlib.pyplot as plt
-import numpy as np
+from typing import List
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import pearsonr
 
@@ -20,39 +19,37 @@ def plot_silhouette_summary(
     mapping_path: Optional[str] = None,
     suffix: str = "",
     show: bool = False,
+    sort_by: str = "median",
 ):
     df = pd.read_csv(silhouette_score_path)
     grouped = df.groupby(label)[score_col].agg(["mean", "std", "median", "count"]).reset_index()
 
     if fscore_path and mapping_path:
         fscore_df = pd.read_csv(fscore_path)
-        mapping_df = pd.read_csv(mapping_path)
-        mapping_df.columns = ["clusterName", label]
+        mapping = pd.read_csv(mapping_path)
+        mapping.columns = [label, "clusterName"]
+        fscore_df = fscore_df.merge(mapping, on="clusterName", how="inner")
+        grouped = grouped.merge(fscore_df[[label, "f_score"]], on=label, how="left")
 
-        fscore_df = fscore_df.merge(mapping_df, on="clusterName", how="inner")
-        fscore_df = fscore_df[[label, "f_score"]].drop_duplicates()
+    if sort_by not in ["mean", "median", "std"]:
+        raise ValueError("--sort-by must be one of 'mean', 'median', or 'std'")
 
-        grouped = grouped.merge(fscore_df, on=label, how="left")
+    grouped = grouped.sort_values(sort_by, ascending=False)
 
-    grouped = grouped.sort_values("median", ascending=False)
-
-    fig, ax = plt.subplots(figsize=(20, 6))
+    fig, ax = plt.subplots(figsize=(14, 6))
     x = np.arange(len(grouped))
+    ax.bar(x - 0.2, grouped["median"], width=0.4, label="Median Silhouette")
 
-    ax.bar(x - 0.2, grouped["median"], width=0.4, label="Median Silhouette", color="skyblue")
     if "f_score" in grouped.columns:
-        ax.bar(x + 0.2, grouped["f_score"], width=0.4, label="F-score", color="orange")
+        ax.bar(x + 0.2, grouped["f_score"], width=0.4, label="F-score")
+        for i, f in enumerate(grouped["f_score"]):
+            ax.text(i + 0.2, f + 0.02, f"F={f:.2f}", ha="center", fontsize=6)
 
-    ax.errorbar(x - 0.2, grouped["mean"], yerr=grouped["std"], fmt='o', color='black', capsize=5)
-    ax.scatter(x - 0.2, grouped["median"], color='red', zorder=5)
-
-    for i, row in grouped.iterrows():
-        # Mean & Median for silhouette
-        ax.text(i - 0.2, row["mean"] + row["std"] + 0.02, f"μ={row['mean']:.2f}", ha="center", fontsize=7)
-        ax.text(i - 0.2, row["median"] + 0.02, f"M={row['median']:.2f}", ha="center", fontsize=7)
-        # F-score if available
-        if "f_score" in row and not pd.isna(row["f_score"]):
-            ax.text(i + 0.2, row["f_score"] + 0.02, f"F={row['f_score']:.2f}", ha="center", fontsize=7)
+    for i, (mean, std, median) in enumerate(zip(grouped["mean"], grouped["std"], grouped["median"])):
+        ax.errorbar(i - 0.2, mean, yerr=std, fmt='o', color='black', capsize=5)
+        ax.scatter(i - 0.2, median, color='red', zorder=5)
+        ax.text(i - 0.25, mean + std + 0.02, f"\u03BC={mean:.2f}", ha="center", fontsize=6)
+        ax.text(i - 0.20, mean + std + 0.06, f"M={median:.2f}"   , ha="center", fontsize=6)
 
     ax.set_xticks(x)
     ax.set_xticklabels(grouped[label], rotation=90)
@@ -68,61 +65,40 @@ def plot_silhouette_summary(
 
     grouped.to_csv(os.path.join(output_dir, f"{label}_summary_{score_col}{suffix}.csv"), index=False)
 
-
-def plot_fscore_vs_silhouette_files(
-    fscore_path: str,
+def plot_correlation_summary(
     cluster_summary_path: str,
     output_dir: str,
-    label: str,
+    silhouette_metrics: List[str],
     score_col: str,
+    label: str,
     suffix: str = "",
-    mapping_path: Optional[str] = None,
-    summary_path: Optional[str] = None,
-    silhouette_stat: str = "mean",
     show: bool = False,
-    export_csv: bool = False,
 ):
-    fscore_df = pd.read_csv(fscore_path)
-    cluster_summary = pd.read_csv(summary_path) if summary_path else pd.read_csv(cluster_summary_path)
+    df = pd.read_csv(cluster_summary_path)
+    results = []
 
-    if mapping_path:
-        mapping_df = pd.read_csv(mapping_path)
-        mapping_df.columns = ["clusterName", label]
-        fscore_df = fscore_df.merge(mapping_df, on="clusterName", how="inner")
+    for metric in silhouette_metrics:
+        if metric not in df.columns or score_col not in df.columns:
+            continue
 
-    fscore_df = fscore_df[[label, "f_score"]].drop_duplicates()
-    merged = pd.merge(fscore_df, cluster_summary, on=label, how="left")
+        x = df[score_col]
+        y = df[metric]
+        r, p = pearsonr(x, y)
+        results.append({"metric": metric, "pearson_r": r, "p_value": p})
 
-    y_col = f"{silhouette_stat}_{score_col.split('_')[-1]}"
-    if y_col not in merged.columns:
-        raise ValueError(f"{y_col} not found in merged DataFrame.")
+        fig, ax = plt.subplots()
+        sns.regplot(x=x, y=y, ax=ax)
+        ax.set_title(f"{score_col} vs {metric} (r={r:.2f}, p={p:.3f})")
+        ax.set_xlabel(score_col)
+        ax.set_ylabel(metric)
+        fig.tight_layout()
 
-    merged = merged.dropna(subset=["f_score", y_col])
-    if merged.empty:
-        raise ValueError("No data left after merging. Check mapping or column names.")
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        fig.savefig(os.path.join(output_dir, f"{label}_fscore_vs_{metric}{suffix}.png"))
+        if show:
+            plt.show()
+        plt.close(fig)
 
-    r, _ = pearsonr(merged["f_score"], merged[y_col])
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.regplot(data=merged, x="f_score", y=y_col, ax=ax)
-    ax.set_title(f"f_score vs {y_col} (r={r:.2f})")
-    ax.axhline(merged[y_col].median(), linestyle="--", color="gray")
-    ax.axvline(merged["f_score"].median(), linestyle="--", color="gray")
-    ax.set_xlabel("f_score")
-    ax.set_ylabel(y_col)
-
-    for _, row in merged.iterrows():
-        ax.text(row["f_score"], row[y_col], f"{row['f_score']:.2f}", fontsize=7)
-
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    fig.savefig(os.path.join(output_dir, f"{label}_fscore_vs_{y_col}_{suffix}.png"), bbox_inches="tight")
-    if show:
-        plt.show()
-    plt.close(fig)
-
-    if export_csv:
-        merged.to_csv(
-            os.path.join(output_dir, f"{label}_merged_fscore_silhouette_{suffix}.csv"),
-            index=False,
-        )
-
+    results_df = pd.DataFrame(results)
+    results_df.to_csv(os.path.join(output_dir, f"{label}_fscore_correlations{suffix}.csv"), index=False)
+    

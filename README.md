@@ -7,7 +7,7 @@ Silhouette scoring and F-score correlation for single-cell RNA-seq cluster valid
 
 ---
 
-## 🔧 Features
+## Features
 
 - Compute silhouette scores from `.h5ad` files
 - Summarize silhouette stats per cluster
@@ -17,7 +17,7 @@ Silhouette scoring and F-score correlation for single-cell RNA-seq cluster valid
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 git clone https://github.com/NIH-NLM/scsilhouette
@@ -29,7 +29,7 @@ pip install -e .
 
 ---
 
-## 🚀 Command Line Usage
+## Command Line Usage
 
 ### Compute Silhouette
 
@@ -76,30 +76,30 @@ scsilhouette viz-fscore \
 
 ---
 
-## 🧠 Quadrant Interpretation
+## Quadrant Interpretation
 
 | Quadrant | Meaning                                                                 |
 |----------|-------------------------------------------------------------------------|
-| Q1       | 💡 High Silhouette, High F-score → Good clustering & markers            |
-| Q2       | ⚠️ High Silhouette, Low F-score → Well-separated clusters, weak markers |
-| Q3       | 🚧 Low Silhouette, Low F-score → Poor clustering and weak markers       |
-| Q4       | 🤔 Low Silhouette, High F-score → Good markers, weak clustering         |
+| Q1       | High Silhouette, High F-score → Good clustering & markers            |
+| Q2       | High Silhouette, Low F-score → Well-separated clusters, weak markers |
+| Q3       | Low Silhouette, Low F-score → Poor clustering and weak markers       |
+| Q4       | Low Silhouette, High F-score → Good markers, weak clustering         |
 
 ---
 
-## 📄 Documentation
+## Documentation
 
 Full API and CLI documentation is auto-generated with [Sphinx](https://www.sphinx-doc.org/) using `autodoc`, `autosummary`, and `literalinclude` for CLI help injection.
 
 Deployed using [GitHub Pages](https://pages.github.com/) at:
 
-🔗 https://nih-nlm.github.io/scsilhouette/
+https://nih-nlm.github.io/scsilhouette/
 
 All rendered figures used in this README are stored under `docs/source/_static/` and referenced within reStructuredText files for Sphinx processing.
 
 ---
 
-## 🧪 Testing (Coming Soon)
+## Testing (Coming Soon)
 
 ```bash
 pytest tests/
@@ -107,7 +107,7 @@ pytest tests/
 
 ---
 
-## 📄 License
+## License
 
 MIT License © National Library of Medicine, NIH
 

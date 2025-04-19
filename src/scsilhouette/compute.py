@@ -1,90 +1,113 @@
 # src/scsilhouette/compute.py
 
 import os
+import pickle
+from typing import Optional, List
 import pandas as pd
-import numpy as np
 import scanpy as sc
 from sklearn.metrics import silhouette_samples
-from typing import Optional, List
-from .nsforest import load_nsforest_binary_genes
+import numpy as np
 
 
-def compute_silhouette_scores(adata, label_key, embedding_key, metric="euclidean", gene_set: Optional[List[str]] = None):
-    if gene_set:
-        adata = adata[:, gene_set].copy()
-        print(f"[i] Using {len(gene_set)} binary genes for silhouette score calculation")
+def load_binary_gene_list(path: str) -> List[str]:
+    genes = []
+    with open(path) as f:
+        genes = [line.strip() for line in f if line.strip()]
+    print(f"[PASS] Loaded {len(genes)} binary genes from file.")
+    return genes
 
-    X = adata.obsm[embedding_key]
-    labels = adata.obs[label_key].astype(str)
 
-    silhouette_vals = silhouette_samples(X, labels, metric=metric)
-    return pd.DataFrame({
-        "cell_id": adata.obs_names,
-        label_key: labels,
-        f"silhouette_score_{metric}": silhouette_vals
-    })
+def validate_adata_for_save(adata: sc.AnnData):
+    for attr in [adata.obs, adata.var, getattr(adata.raw, "var", pd.DataFrame())]:
+        if "_index" in attr.columns:
+            attr.drop(columns=["_index"], inplace=True)
+
+
+def compute_silhouette(
+    adata: sc.AnnData,
+    label_key: str,
+    embedding_key: str,
+    gene_subset: Optional[List[str]] = None,
+    metric: str = "euclidean"
+) -> pd.DataFrame:
+
+    if embedding_key not in adata.obsm:
+        raise ValueError(f"{embedding_key} not found in adata.obsm")
+    if label_key not in adata.obs:
+        raise ValueError(f"{label_key} not found in adata.obs")
+
+    if gene_subset:
+        adata_subset = adata[:, adata.var_names.isin(gene_subset)].copy()
+        X = adata_subset.X
+        print(f"[PASS] silhouette_samples calculated on {len(gene_subset)} binary genes")
+    else:
+        X = adata.obsm[embedding_key]
+        print(f"[PASS] silhouette_samples calculated on {embedding_key}")
+
+    y = adata.obs[label_key].values
+    scores = silhouette_samples(X, y, metric=metric)
+
+    df = adata.obs[[label_key]].copy()
+    df["silhouette_score_" + metric] = scores
+    return df
+
+
+def summarize_silhouette(df: pd.DataFrame, label_key: str, score_key: str) -> pd.DataFrame:
+    summary = (
+        df.groupby(label_key)[score_key]
+        .agg(["mean", "std", "median", "count"])
+        .reset_index()
+    )
+    print(f"[PASS] Generated summary for {summary.shape[0]} clusters.")
+    return summary
 
 
 def run_silhouette(
     h5ad_path: str,
-    label_keys: List[str],
+    label_key: str,
     embedding_key: str,
     output_dir: str,
-    nsforest_path: Optional[str] = None,
-    metric: str = "euclidean",
     use_binary_genes: bool = False,
+    gene_list_path: Optional[str] = None,
+    metric: str = "euclidean",
     save_scores: bool = False,
     save_cluster_summary: bool = False,
     save_csv: bool = False,
-    qc_correlations: bool = False,
-    show_obs: bool = False,
+    show_obs: bool = False
 ):
-    os.makedirs(output_dir, exist_ok=True)
     adata = sc.read(h5ad_path)
 
     if show_obs:
-        obs_preview = adata.obs.head()
-        print("[✓] Saved obs preview:", os.path.join(output_dir, "obs_preview.csv"))
-        obs_preview.to_csv(os.path.join(output_dir, "obs_preview.csv"))
+        print(adata.obs.head())
 
-    binary_gene_dict = {}
-    fscore_df = None
-    if nsforest_path:
-        binary_gene_dict, fscore_df = load_nsforest_binary_genes(nsforest_path)
-        print("[✓] Loaded NSForest file:", nsforest_path)
+    gene_subset = load_binary_gene_list(gene_list_path) if use_binary_genes and gene_list_path else None
 
-    for label_key in label_keys:
-        gene_set = None
-        if use_binary_genes and label_key in binary_gene_dict:
-            gene_set = binary_gene_dict[label_key]
-            gene_set = [g for g in gene_set if g in adata.var_names]
-            print(f"[i] Using {len(gene_set)} binary genes for cluster '{label_key}'")
+    df_scores = compute_silhouette(
+        adata,
+        label_key,
+        embedding_key,
+        gene_subset=gene_subset,
+        metric=metric
+    )
 
-        cell_scores = compute_silhouette_scores(
-            adata, label_key, embedding_key, metric=metric, gene_set=gene_set
-        )
+    os.makedirs(output_dir, exist_ok=True)
 
-        cluster_summary = (
-            cell_scores.groupby(label_key)[f"silhouette_score_{metric}"]
-            .agg(["median", "mean", "std", "count"])
-            .reset_index()
-            .rename(columns={
-                "mean": f"mean_silhouette_{metric}",
-                "std": f"std_silhouette_{metric}",
-                "count": "n_cells"
-            })
-        )
+    if save_scores:
+        pkl_path = os.path.join(output_dir, f"{label_key}_silhouette_scores.pkl")
+        with open(pkl_path, "wb") as f:
+            pickle.dump(df_scores, f)
+        print(f"[PASS] Saved silhouette scores to {pkl_path}")
 
-        suffix = "binary_genes_" + embedding_key if use_binary_genes else embedding_key
+    if save_csv:
+        csv_path = os.path.join(output_dir, f"{label_key}_silhouette_scores_binary_genes_{embedding_key}.csv")
+        df_scores.to_csv(csv_path, index=False)
+        print(f"[PASS] Saved silhouette scores CSV to {csv_path}")
 
-        if save_scores:
-            cell_scores.to_csv(os.path.join(output_dir, f"{label_key}_silhouette_scores_{suffix}.csv"), index=False)
-            print(f"[✓] Saved: {label_key}_silhouette_scores_{suffix}.csv")
+    if save_cluster_summary:
+        score_col = df_scores.columns[-1]
+        summary = summarize_silhouette(df_scores, label_key, score_col)
+        summary_path = os.path.join(output_dir, f"{label_key}_cluster_summary_{metric}.csv")
+        summary.to_csv(summary_path, index=False)
+        print(f"[PASS] Saved cluster summary to {summary_path}")
 
-        if save_cluster_summary:
-            cluster_summary.to_csv(os.path.join(output_dir, f"{label_key}_cluster_summary_{metric}.csv"), index=False)
-            print(f"[✓] Saved: {label_key}_cluster_summary_{metric}.csv")
 
-        if qc_correlations and fscore_df is not None:
-            fscore_out = os.path.join(output_dir, f"{label_key}_fscore_vs_silhouette_{metric}_corr.csv")
-            print(f"[✓] QC Correlation saved to {fscore_out}")

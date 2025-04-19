@@ -11,7 +11,7 @@ Welcome to scsilhouette's documentation!
    :width: 600
    :align: center
 
-🔧 Features
+Features
 -----------
 
 - Compute silhouette scores across label sets
