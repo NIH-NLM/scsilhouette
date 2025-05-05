@@ -2,25 +2,12 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import pandas as pd
 import json
-import ast  # for safely parsing stringified lists
+import ast
 
 
 def load_nsforest_binary_genes(
     nsforest_file: Path, dump_json: bool = False, json_path: Path = None
 ) -> Tuple[Dict[str, List[str]], pd.DataFrame]:
-    """
-    Load NS-Forest binary gene definitions and F-score data.
-
-    Args:
-        nsforest_file: Path to the NS-Forest CSV file.
-        dump_json: Whether to save the binary gene dictionary to JSON.
-        json_path: Optional path to save JSON if dump_json is True.
-
-    Returns:
-        A tuple:
-        - Dictionary mapping cluster to list of binary genes
-        - DataFrame with columns: cluster, F-score, binary_genes
-    """
     df = pd.read_csv(nsforest_file)
 
     if 'clusterName' not in df.columns or 'binary_genes' not in df.columns:
@@ -46,32 +33,7 @@ def load_nsforest_binary_genes(
     return gene_dict, df[['cluster', 'F-score', 'binary_genes']]
 
 
-def validate_cluster_alignment(
-    silhouette_df: pd.DataFrame, fscore_df: pd.DataFrame, label_key: str
-) -> List[str]:
-    """
-    Identify unmatched cluster labels between silhouette and NS-Forest data.
-
-    Args:
-        silhouette_df: DataFrame with silhouette scores.
-        fscore_df: DataFrame with NS-Forest F-scores.
-        label_key: Column name for cluster labels in silhouette_df.
-
-    Returns:
-        List of unmatched labels.
-    """
-    silhouette_labels = set(silhouette_df[label_key].astype(str).unique())
-    fscore_labels = set(fscore_df['cluster'].astype(str).unique())
-    return sorted(list(silhouette_labels.symmetric_difference(fscore_labels)))
-
 def extract_binary_genes(nsforest_path: str, output_path: str):
-    """
-    Extract a flattened, unique set of binary marker genes from the NS-Forest CSV.
-
-    Args:
-        nsforest_path: Path to the NS-Forest CSV.
-        output_path: Output path to save the unique list of genes (one per line).
-    """
     df = pd.read_csv(nsforest_path)
 
     if "binary_genes" not in df.columns:
@@ -91,3 +53,9 @@ def extract_binary_genes(nsforest_path: str, output_path: str):
     with open(output_path, "w") as f:
         for gene in sorted(all_genes):
             f.write(f"{gene}\n")
+
+
+def load_binary_gene_list(gene_list_path: Path) -> List[str]:
+    with open(gene_list_path, "r") as f:
+        return [line.strip() for line in f if line.strip()]
+

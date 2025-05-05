@@ -88,6 +88,42 @@ def nsforest_genes_command(
         output_path=str(output_path)
     )
 
+@app.command("viz-dotplot")
+def viz_dotplot_command(
+    h5ad_path: str = typer.Option(..., help="Path to input .h5ad file"),
+    embedding_key: str = typer.Option(..., help="Embedding key (X_umap, X_scanvi_emb)"),
+    label_key: str = typer.Option(..., help="Label key for color"),
+    output_dir: str = typer.Option(..., help="Directory to save dotplot"),
+    suffix: str = typer.Option("", help="Suffix for output filename"),
+    show: bool = typer.Option(False, help="Show the plot interactively")
+):
+    viz.plot_dotplot(
+        h5ad_path=h5ad_path,
+        embedding_key=embedding_key,
+        label_key=label_key,
+        output_dir=output_dir,
+        suffix=suffix,
+        show=show,
+    )
+
+@app.command("viz-heatmap")
+def viz_heatmap_command(
+    h5ad_path: str = typer.Option(..., help="Path to input .h5ad file"),
+    embedding_key: str = typer.Option(..., help="Embedding key (X_umap, X_scanvi_emb)"),
+    label_key: str = typer.Option(..., help="Label key for heatmap grouping"),
+    output_dir: str = typer.Option(..., help="Directory to save heatmap"),
+    suffix: str = typer.Option("", help="Suffix for output filename"),
+    show: bool = typer.Option(False, help="Show the plot interactively")
+):
+    viz.plot_heatmap(
+        h5ad_path=h5ad_path,
+        embedding_key=embedding_key,
+        label_key=label_key,
+        output_dir=output_dir,
+        suffix=suffix,
+        show=show,
+    )
+
 def main():
     app()
 

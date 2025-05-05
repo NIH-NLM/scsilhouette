@@ -1,14 +1,12 @@
 # src/scsilhouette/viz.py
 import os
 from pathlib import Path
-from typing import Optional
-from typing import List
+from typing import Optional, List
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import pearsonr
-
 
 def plot_silhouette_summary(
     silhouette_score_path: str,
@@ -38,6 +36,7 @@ def plot_silhouette_summary(
 
     fig, ax = plt.subplots(figsize=(14, 6))
     x = np.arange(len(grouped))
+
     ax.bar(x - 0.2, grouped["median"], width=0.4, label="Median Silhouette")
 
     if "f_score" in grouped.columns:
@@ -49,7 +48,7 @@ def plot_silhouette_summary(
         ax.errorbar(i - 0.2, mean, yerr=std, fmt='o', color='black', capsize=5)
         ax.scatter(i - 0.2, median, color='red', zorder=5)
         ax.text(i - 0.25, mean + std + 0.02, f"\u03BC={mean:.2f}", ha="center", fontsize=6)
-        ax.text(i - 0.20, mean + std + 0.06, f"M={median:.2f}"   , ha="center", fontsize=6)
+        ax.text(i - 0.20, mean + std + 0.06, f"M={median:.2f}", ha="center", fontsize=6)
 
     ax.set_xticks(x)
     ax.set_xticklabels(grouped[label], rotation=90)
@@ -64,6 +63,7 @@ def plot_silhouette_summary(
     plt.close(fig)
 
     grouped.to_csv(os.path.join(output_dir, f"{label}_summary_{score_col}{suffix}.csv"), index=False)
+
 
 def plot_correlation_summary(
     cluster_summary_path: str,
@@ -101,4 +101,42 @@ def plot_correlation_summary(
 
     results_df = pd.DataFrame(results)
     results_df.to_csv(os.path.join(output_dir, f"{label}_fscore_correlations{suffix}.csv"), index=False)
-    
+
+def plot_dotplot(
+    h5ad_path: str,
+    groupby: str,
+    embedding_key: str,
+    output_dir: str,
+    suffix: str = "",
+    show: bool = False,
+):
+    adata = sc.read_h5ad(h5ad_path)
+
+    sc.pl.embedding(
+        adata,
+        basis=embedding_key.replace("X_", ""),
+        color=groupby,
+        show=show,
+        save=f"_dotplot{suffix}.png",
+    )
+
+
+def plot_heatmap(
+    h5ad_path: str,
+    groupby: str,
+    embedding_key: str,
+    output_dir: str,
+    suffix: str = "",
+    show: bool = False,
+):
+    adata = sc.read_h5ad(h5ad_path)
+
+    sc.pl.embedding(
+        adata,
+        basis=embedding_key.replace("X_", ""),
+        color=groupby,
+        cmap="viridis",
+        show=show,
+        save=f"_heatmap{suffix}.png",
+    )
+
