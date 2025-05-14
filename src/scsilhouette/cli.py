@@ -47,7 +47,7 @@ def viz_summary_command(
 ):
     viz.plot_silhouette_summary(
         silhouette_score_path=str(silhouette_score_path),
-        output_dir=str(output_dir),
+        output_dir=Path(output_dir),
         label=label,
         score_col=score_col,
         fscore_path=str(fscore_path) if fscore_path else None,
@@ -69,7 +69,7 @@ def viz_correlation_command(
 ):
     viz.plot_correlation_summary(
         cluster_summary_path=str(cluster_summary_path),
-        output_dir=str(output_dir),
+        output_dir=(output_dir),
         x_metric=x_metric,
         y_metrics=[x.strip() for x in y_metrics.split(",")],
         label=label,

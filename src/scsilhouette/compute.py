@@ -26,7 +26,7 @@ def run_silhouette(
     import numpy as np
 
     adata = sc.read(h5ad_path)
-    prefix = h5ad_path.name.replace(".h5ad", "")
+    prefix = Path(h5ad_path).stem
 
     print(f" will save output with {prefix}")
     print(f"[PASS] Loaded AnnData with {adata.shape}")
@@ -75,10 +75,12 @@ def run_silhouette(
     if save_cluster_summary:
         summary_df = (
             adata.obs.groupby(label_key)
-            .agg(mean_silhouette=("silhouette_score", "mean"),
-                 std_silhouette=("silhouette_score", "std"),
-                 median_silhouette=("silhouette_score", "median"),
-                 count=("silhouette_score","count")))
+            .agg(
+                mean_silhouette=("silhouette_score", "mean"),
+                std_silhouette=("silhouette_score", "std"),
+                median_silhouette=("silhouette_score", "median"),
+                count=("silhouette_score", "count"),
+            )
             .reset_index()
         )
         summary_path = output_dir / f"cluster_summary_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
@@ -88,7 +90,7 @@ def run_silhouette(
     if save_annotation:
         annotation_path = output_dir / f"annotation__{prefix}_{label_key}_{embedding_key}_{metric}.csv"
         adata.obs.head().to_csv(annotation_path)
-        print(f"[PASS] Saved annotation to {obs_path}")
+        print(f"[PASS] Saved annotation to {annotation_path}")
 
     if show_annotation:
         print(adata.obs.head())

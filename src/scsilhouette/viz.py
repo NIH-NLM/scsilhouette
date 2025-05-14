@@ -20,7 +20,7 @@ def plot_silhouette_summary(
     sort_by: str = "median",
 ):
     df = pd.read_csv(silhouette_score_path)
-    prefix = silhouette_score_path.name.replace(".csv", "")
+    prefix = Path(silhouette_score_path).stem
     suffix = prefix
     
     grouped = df.groupby(label)[score_col].agg(["mean", "std", "median", "count"]).reset_index()
@@ -59,9 +59,7 @@ def plot_silhouette_summary(
     ax.set_title(f"Silhouette Summary with F-score per {label}")
     ax.legend()
 
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    
-    fig.savefig(os.path.join(output_dir, f"fscore_silhouette_summary_{sufix}.png"), bbox_inches="tight")
+    fig.savefig(os.path.join(output_dir, f"fscore_silhouette_summary_{suffix}.png"), bbox_inches="tight")
     if show:
         plt.show()
     plt.close(fig)
@@ -81,7 +79,7 @@ def plot_correlation_summary(
     mapping_path: Optional[str] = None,
 ):
     df = pd.read_csv(cluster_summary_path)
-    prefix = cluster_summary_path.name.replace(".csv", "")
+    prefix = Path(cluster_summary_path).stem
     suffix = prefix
 
     # Merge fscore if provided
@@ -112,8 +110,6 @@ def plot_correlation_summary(
         ax.set_ylabel(y_metric)
         fig.tight_layout()
 
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-
         fig.savefig(os.path.join(output_dir, f"{x_metric}_vs_{y_metric}_{suffix}.png"))
         if show:
             plt.show()
@@ -130,7 +126,7 @@ def plot_dotplot(
     show: bool = False,
 ):
     adata = sc.read_h5ad(h5ad_path)
-    prefix = h5ad_path.name.replace(".h5ad", "")
+    prefix = Path(h5ad_path).stem
     suffix = prefix
     
     sc.pl.embedding(
@@ -151,7 +147,7 @@ def plot_heatmap(
     show: bool = False,
 ):
     adata = sc.read_h5ad(h5ad_path)
-    prefix = h5ad_path.name.replace(".h5ad", "")
+    prefix = Path(h5ad_path).stem
     suffix = prefix
 
     sc.pl.embedding(
@@ -173,7 +169,7 @@ def plot_distribution(
     import numpy as np
 
     df = pd.read_csv(summary_csv)
-    prefix = summary_csv.name.replace(".csv", "")
+    prefix = Path(summary_csv).stem
 
     df['count_log10'] = np.log10(df['count'].replace(0, np.nan))
 
@@ -187,9 +183,9 @@ def plot_distribution(
     ax1.tick_params(axis='x', rotation=90)
 
     ax2 = ax1.twinx()
-    ax2.plot(df_sorted_log[label_key], df_sorted_log["mean"], color="blue", marker='o', label="Mean")
-    ax2.plot(df_sorted_log[label_key], df_sorted_log["median"], color="red", marker='o', label="Median")
-    ax2.plot(df_sorted_log[label_key], df_sorted_log["std"], color="black", marker='o', label="Std Dev")
+    ax2.plot(df_sorted_log[label_key], df_sorted_log["mean_silhouette"], color="blue", marker='o', label="Mean")
+    ax2.plot(df_sorted_log[label_key], df_sorted_log["median_silhouette"], color="red", marker='o', label="Median")
+    ax2.plot(df_sorted_log[label_key], df_sorted_log["std_silhouette"], color="black", marker='o', label="Std Dev")
     ax2.set_ylabel("Silhouette Scores", color="black")
     ax2.tick_params(axis='y', labelcolor="black")
 
@@ -212,9 +208,9 @@ def plot_distribution(
     ax1_raw.tick_params(axis='x', rotation=90)
 
     ax2_raw = ax1_raw.twinx()
-    ax2_raw.plot(df_sorted_raw[label_key], df_sorted_raw["mean"], color="blue", marker='o', label="Mean")
-    ax2_raw.plot(df_sorted_raw[label_key], df_sorted_raw["median"], color="red", marker='o', label="Median")
-    ax2_raw.plot(df_sorted_raw[label_key], df_sorted_raw["std"], color="black", marker='o', label="Std Dev")
+    ax2_raw.plot(df_sorted_raw[label_key], df_sorted_raw["mean_silhouette"], color="blue", marker='o', label="Mean")
+    ax2_raw.plot(df_sorted_raw[label_key], df_sorted_raw["median_silhouette"], color="red", marker='o', label="Median")
+    ax2_raw.plot(df_sorted_raw[label_key], df_sorted_raw["std_silhouette"], color="black", marker='o', label="Std Dev")
     ax2_raw.set_ylabel("Silhouette Scores", color="black")
     ax2_raw.tick_params(axis='y', labelcolor="black")
 
