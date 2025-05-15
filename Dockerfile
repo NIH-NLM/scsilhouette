@@ -1,27 +1,18 @@
-# Use slim Python base image
-FROM python:3.10-slim
+# Start from miniconda image
+FROM mambaorg/micromamba:1.4.3
 
-# Set non-root user (optional for security)
-# RUN useradd -ms /bin/bash scuser
-# USER scuser
-
-# Set working directory
+# Set working dir
 WORKDIR /app
 
-# Copy only the necessary files first to leverage Docker cache
-COPY pyproject.toml poetry.lock* ./
-
-# Install Poetry
-RUN pip install --no-cache-dir poetry
-
-# Install dependencies
-RUN poetry config virtualenvs.create false \
-  && poetry install --no-interaction --no-ansi
-
-# Copy source code
+# Copy env file and source
+COPY environment.yml ./
 COPY src/ ./src/
 
-# Install CLI entry point
+# Install dependencies
+RUN micromamba install -y -n base -f environment.yml && \
+    micromamba clean --all --yes
+
+# Set Python path and entry point
 ENV PYTHONPATH=/app/src
 ENTRYPOINT ["scsilhouette"]
 CMD ["--help"]
