@@ -130,6 +130,20 @@ def viz_distribution_command(
         label_key=label_key,
     )
 
+@app.command("viz-dataset-summary")
+def viz_dataset_summary(
+    cluster_summary_path: str = typer.Option(..., help="Path to cluster_summary file created by the compute silhouette score"),
+    label: str = typer.Option(..., help="Label for the clusters"),
+    output_dir: str = typer.Option(..., help="Directory to save cluster summary quartile pictures"),
+    show: bool = typer.Option(False, help="Show the plot interactively")
+):
+    viz.plot_dataset_summary(
+        cluster_summary_path=cluster_summary_path,
+        label=label,
+        output_dir=output_dir,
+        show=show,
+    )
+
 def main():
     app()
 

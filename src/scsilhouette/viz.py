@@ -224,3 +224,28 @@ def plot_distribution(
     plt.close(fig_raw)
 
     print(f"[DONE] Saved: {prefix}_log10.png and {prefix}_raw.png")
+def plot_dataset_summary(
+    cluster_summary_path: str,
+    label: str,
+    score_col: str = "silhouette_score",
+    output_dir: str = "results",
+    show: bool = False
+):
+    df = pd.read_csv(cluster_summary_path)
+    prefix = Path(cluster_summary_path).stem
+
+    df["quartile"] = pd.qcut(df["mean_silhouette"], 4, labels=["Q1", "Q2", "Q3", "Q4"])
+
+    for q in ["Q1", "Q2", "Q3", "Q4"]:
+        subset = df[df["quartile"] == q]
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.boxplot(data=subset[["mean_silhouette", "std_silhouette", "median_silhouette", "count"]], ax=ax)
+        ax.set_title(f"{prefix} Cluster Summary: {q}")
+        fig.tight_layout()
+
+        fig_path = Path(output_dir) / f"{prefix}_summary_{q}.png"
+        fig.savefig(fig_path)
+        if show:
+            plt.show()
+        plt.close(fig)
+
