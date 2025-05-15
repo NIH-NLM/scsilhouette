@@ -224,28 +224,59 @@ def plot_distribution(
     plt.close(fig_raw)
 
     print(f"[DONE] Saved: {prefix}_log10.png and {prefix}_raw.png")
+
 def plot_dataset_summary(
     cluster_summary_path: str,
     label: str,
-    score_col: str = "silhouette_score",
-    output_dir: str = "results",
+    output_dir: str,
     show: bool = False
 ):
     df = pd.read_csv(cluster_summary_path)
+
     prefix = Path(cluster_summary_path).stem
+
+    metrics = {
+        "mean_silhouette": "Mean Silhouette",
+        "median_silhouette": "Median Silhouette",
+        "std_silhouette": "Std Dev Silhouette",
+        "log10_count": "log10(Cluster Size)"
+    }
+
+    df["log10_count"] = np.log10(df["count"] + 1)
+
+    plots = []
+    ylims = {}
+
+    # Get global y-limits per row
+    for metric in metrics:
+        min_val = df[metric].min()
+        max_val = df[metric].max()
+        ylims[metric] = (min_val - 0.05, max_val + 0.05)
 
     df["quartile"] = pd.qcut(df["mean_silhouette"], 4, labels=["Q1", "Q2", "Q3", "Q4"])
 
-    for q in ["Q1", "Q2", "Q3", "Q4"]:
-        subset = df[df["quartile"] == q]
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.boxplot(data=subset[["mean_silhouette", "std_silhouette", "median_silhouette", "count"]], ax=ax)
-        ax.set_title(f"{prefix} Cluster Summary: {q}")
-        fig.tight_layout()
+    fig, axes = plt.subplots(nrows=4, ncols=4, figsize=(20, 16), sharex=False)
+    metric_keys = list(metrics.keys())
+    quartiles = ["Q1", "Q2", "Q3", "Q4"]
 
-        fig_path = Path(output_dir) / f"{prefix}_summary_{q}.png"
-        fig.savefig(fig_path)
-        if show:
-            plt.show()
-        plt.close(fig)
+    for row, metric in enumerate(metric_keys):
+        for col, q in enumerate(quartiles):
+            ax = axes[row][col]
+            subset = df[df["quartile"] == q]
+            sns.boxplot(y=subset[metric], ax=ax, color="lightgray")
+            sns.stripplot(y=subset[metric], ax=ax, color="blue", size=6, jitter=True, alpha=0.7)
+            ax.set_title(f"{metrics[metric]} in {q}")
+            ax.set_ylabel(metrics[metric] if col == 0 else "")
+            ax.set_ylim(ylims[metric])
+            for i, val in enumerate(subset[metric]):
+                ax.text(0, val, f"{val:.2f}", ha="left", va="center", fontsize=6)
 
+    fig.suptitle(f"Cluster Summary by Quartile (Group by mean silhouette) — {label}", fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    outfile = Path(output_dir) / f"{prefix}_dataset_summary_quartiles.png"
+    fig.savefig(outfile, dpi=300)
+    if show:
+        plt.show()
+    plt.close(fig)
