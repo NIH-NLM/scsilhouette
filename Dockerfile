@@ -1,22 +1,28 @@
-# Start from a miniconda base image
-FROM continuumio/miniconda3
+# Use slim Python base image
+FROM python:3.10-slim
 
-# Create a working directory inside the image
-WORKDIR /opt/app
+# Set non-root user (optional for security)
+# RUN useradd -ms /bin/bash scuser
+# USER scuser
 
-# Copy your environment file
-COPY environment.yml .
+# Set working directory
+WORKDIR /app
 
-# Create the environment & activate it
-RUN conda env create -f environment.yml
+# Copy only the necessary files first to leverage Docker cache
+COPY pyproject.toml poetry.lock* ./
 
-# Activate env by default in all future RUN/CMD/ENTRYPOINT
-SHELL ["conda", "run", "-n", "scsilhouette", "/bin/bash", "-c"]
+# Install Poetry
+RUN pip install --no-cache-dir poetry
 
-# Copy code and set up entrypoint
-COPY src/ /opt/app/src/
-COPY bin/compute_silhouette.py /usr/local/bin/compute-silhouette
+# Install dependencies
+RUN poetry config virtualenvs.create false \
+  && poetry install --no-interaction --no-ansi
 
-RUN chmod +x /usr/local/bin/compute-silhouette
+# Copy source code
+COPY src/ ./src/
 
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "scsilhouette", "compute-silhouette"]
+# Install CLI entry point
+ENV PYTHONPATH=/app/src
+ENTRYPOINT ["scsilhouette"]
+CMD ["--help"]
+
