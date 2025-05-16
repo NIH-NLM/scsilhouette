@@ -1,5 +1,6 @@
 # scsilhouette
 
+[![Docker](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-publish.yml)
 ![Docs Status](https://img.shields.io/badge/docs-online-success)
 ![License](https://img.shields.io/github/license/NIH-NLM/scsilhouette)
 
