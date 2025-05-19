@@ -1,190 +1,222 @@
 nextflow.enable.dsl=2
 
-params.h5ad_path     = "data/sample.h5ad"
-params.label_keys    = "cell_type"
-params.embedding_key = "X_umap"
-params.fscore_path   = "data/nsforest_scores.csv"
-params.mapping_path  = "data/cell_type_cluster_map.csv"
+// Parameters
+params.h5ad          = null
+params.label_key     = null
+params.embedding_key = null
+params.datasets      = null
+params.datasets_csv  = null
 params.outdir        = "results"
-params.final_html    = "results/final_report.html"
-params.final_pdf     = "results/final_report.pdf"
+
+// Determine input source
+def dataset_triples_ch =
+    params.datasets_csv ?
+        Channel
+            .fromPath(params.datasets_csv)
+            .splitCsv(header: true)
+            .map { row ->
+                def name = row.h5ad.tokenize('/').last().replace('.h5ad','')
+                tuple(file(row.h5ad), row.label_key, row.embedding_key, name)
+            } :
+    params.datasets ?
+        Channel
+            .from(params.datasets)
+            .map { h5ad, label, embed ->
+                def name = h5ad.tokenize('/').last().replace('.h5ad','')
+                tuple(file(h5ad), label, embed, name)
+            } :
+        Channel
+            .value([
+                file(params.h5ad),
+                params.label_key,
+                params.embedding_key,
+                params.h5ad.tokenize('/').last().replace('.h5ad','')
+            ])
 
 workflow {
-    scores_ch = computeSilhouette(params.h5ad_path)
+  dataset_triples_ch
+    .each { h5ad_file, label_keys, embedding_key, name ->
 
-    summary_ch      = vizSummary(scores_ch.silhouette_scores)
-    dotplot_ch      = vizDotplot(scores_ch.silhouette_scores, scores_ch.cluster_summary)
-    heatmap_ch      = vizHeatmap(scores_ch.silhouette_scores, scores_ch.cluster_summary)
-    dist_ch         = vizDistribution(scores_ch.silhouette_scores)
-    dataset_ch      = vizDatasetSummary(scores_ch.silhouette_scores)
+      scores = computeSilhouette(h5ad_file, label_keys, embedding_key, name)
 
-    mergeReport(
-        summary_ch,
-        dotplot_ch,
-        heatmap_ch,
-        dist_ch,
-        dataset_ch
-    )
+      summary = vizSummary(scores[0], label_keys, name)
+      dotplot = vizDotplot(scores[0], scores[1], label_keys, name)
+      heatmap = vizHeatmap(scores[0], scores[1], label_keys, name)
+      dist    = vizDistribution(scores[0], label_keys, name)
+      dataset = vizDatasetSummary(scores[0], name)
+
+      mergeReport(summary, dotplot, heatmap, dist, dataset, name)
+    }
 }
 
+// --- Processes ---
 process computeSilhouette {
-    input:
-    path h5ad_file from file(params.h5ad_path)
+  input:
+  path h5ad_file
+  val  label_keys
+  val  embedding_key
+  val  name
 
-    output:
-    path "*_silhouette_scores.csv", emit: silhouette_scores
-    path "*_cluster_summary.csv",  emit: cluster_summary
+  output:
+  tuple path("*_silhouette_scores.csv"), path("*_cluster_summary.csv")
 
-    publishDir "${params.outdir}/scores", mode: 'copy'
-    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+  publishDir "${params.outdir}/${name}/scores", mode: 'copy'
+  container "ghcr.io/nih-nlm/scsilhouette:latest"
 
-    script:
-    """
-    scsilhouette compute-silhouette \\
-      --h5ad-path ${h5ad_file} \\
-      --label-keys ${params.label_keys} \\
-      --embedding-key ${params.embedding_key} \\
-      --output-dir . \\
-      --save-scores --save-cluster-summary
-    """
+  script:
+  """
+  scsilhouette compute-silhouette \\
+    --h5ad-path ${h5ad_file} \\
+    --label-keys ${label_keys} \\
+    --embedding-key ${embedding_key} \\
+    --output-dir . \\
+    --save-scores --save-cluster-summary
+  """
 }
 
 process vizSummary {
-    input:
-    path silhouette_scores
+  input:
+  path silhouette_scores
+  val  label_keys
+  val  name
 
-    output:
-    path "*", emit: summary_output
+  output:
+  path("*")
 
-    publishDir "${params.outdir}/summary", mode: 'copy'
-    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+  publishDir "${params.outdir}/${name}/summary", mode: 'copy'
+  container "ghcr.io/nih-nlm/scsilhouette:latest"
 
-    script:
-    """
-    scsilhouette viz-summary \\
-      --silhouette-score-path ${silhouette_scores} \\
-      --output-dir . \\
-      --label ${params.label_keys} \\
-      --score-col silhouette_score_euclidean \\
-      --fscore-path ${params.fscore_path} \\
-      --mapping-path ${params.mapping_path} \\
-      --show --export-csv
-    """
+  script:
+  """
+  scsilhouette viz-summary \\
+    --silhouette-score-path ${silhouette_scores} \\
+    --output-dir . \\
+    --label ${label_keys} \\
+    --score-col silhouette_score_euclidean \\
+    --fscore-path data/nsforest_scores.csv \\
+    --mapping-path data/cell_type_cluster_map.csv \\
+    --show --export-csv
+  """
 }
 
 process vizDotplot {
-    input:
-    path silhouette_scores
-    path cluster_summary
+  input:
+  path silhouette_scores
+  path cluster_summary
+  val  label_keys
+  val  name
 
-    output:
-    path "*", emit: dotplot_output
+  output:
+  path("*")
 
-    publishDir "${params.outdir}/dotplot", mode: 'copy'
-    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+  publishDir "${params.outdir}/${name}/dotplot", mode: 'copy'
+  container "ghcr.io/nih-nlm/scsilhouette:latest"
 
-    script:
-    """
-    scsilhouette viz-dotplot \\
-      --silhouette-score-path ${silhouette_scores} \\
-      --cluster-summary-path ${cluster_summary} \\
-      --output-dir . \\
-      --label ${params.label_keys}
-    """
+  script:
+  """
+  scsilhouette viz-dotplot \\
+    --silhouette-score-path ${silhouette_scores} \\
+    --cluster-summary-path ${cluster_summary} \\
+    --output-dir . \\
+    --label ${label_keys}
+  """
 }
 
 process vizHeatmap {
-    input:
-    path silhouette_scores
-    path cluster_summary
+  input:
+  path silhouette_scores
+  path cluster_summary
+  val  label_keys
+  val  name
 
-    output:
-    path "*", emit: heatmap_output
+  output:
+  path("*")
 
-    publishDir "${params.outdir}/heatmap", mode: 'copy'
-    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+  publishDir "${params.outdir}/${name}/heatmap", mode: 'copy'
+  container "ghcr.io/nih-nlm/scsilhouette:latest"
 
-    script:
-    """
-    scsilhouette viz-heatmap \\
-      --silhouette-score-path ${silhouette_scores} \\
-      --cluster-summary-path ${cluster_summary} \\
-      --output-dir . \\
-      --label ${params.label_keys}
-    """
+  script:
+  """
+  scsilhouette viz-heatmap \\
+    --silhouette-score-path ${silhouette_scores} \\
+    --cluster-summary-path ${cluster_summary} \\
+    --output-dir . \\
+    --label ${label_keys}
+  """
 }
 
 process vizDistribution {
-    input:
-    path silhouette_scores
+  input:
+  path silhouette_scores
+  val  label_keys
+  val  name
 
-    output:
-    path "*", emit: distribution_output
+  output:
+  path("*")
 
-    publishDir "${params.outdir}/distribution", mode: 'copy'
-    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+  publishDir "${params.outdir}/${name}/distribution", mode: 'copy'
+  container "ghcr.io/nih-nlm/scsilhouette:latest"
 
-    script:
-    """
-    scsilhouette viz-distribution \\
-      --silhouette-score-path ${silhouette_scores} \\
-      --output-dir . \\
-      --label ${params.label_keys}
-    """
+  script:
+  """
+  scsilhouette viz-distribution \\
+    --silhouette-score-path ${silhouette_scores} \\
+    --output-dir . \\
+    --label ${label_keys}
+  """
 }
 
 process vizDatasetSummary {
-    input:
-    path silhouette_scores
+  input:
+  path silhouette_scores
+  val  name
 
-    output:
-    path "*", emit: dataset_summary_output
+  output:
+  path("*")
 
-    publishDir "${params.outdir}/dataset_summary", mode: 'copy'
-    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+  publishDir "${params.outdir}/${name}/dataset_summary", mode: 'copy'
+  container "ghcr.io/nih-nlm/scsilhouette:latest"
 
-    script:
-    """
-    scsilhouette viz-dataset-summary \\
-      --silhouette-score-path ${silhouette_scores} \\
-      --output-dir .
-    """
+  script:
+  """
+  scsilhouette viz-dataset-summary \\
+    --silhouette-score-path ${silhouette_scores} \\
+    --output-dir .
+  """
 }
 
 process mergeReport {
-    input:
-    path summary_files
-    path dotplot_files
-    path heatmap_files
-    path dist_files
-    path dataset_summary_files
+  input:
+  path summary_files
+  path dotplot_files
+  path heatmap_files
+  path distribution_files
+  path dataset_summary_files
+  val  name
 
-    output:
-    path "${params.final_html}"
-    path "${params.final_pdf}"
+  output:
+  path("${name}_report.html")
+  path("${name}_report.pdf")
 
-    publishDir "${params.outdir}", mode: 'copy'
-    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+  publishDir "${params.outdir}/${name}/report", mode: 'copy'
+  container "ghcr.io/nih-nlm/scsilhouette:latest"
 
-    script:
-    """
-    cat <<EOF > report.html
-    <html><head><title>scSilhouette Report</title></head><body>
-    <h1>Dataset Summary</h1>
-    <img src="dataset_summary.png"/>
-    <h2>Silhouette Summary</h2>
-    <img src="summary.png"/>
-    <h2>Dotplot</h2>
-    <img src="dotplot.png"/>
-    <h2>Heatmap</h2>
-    <img src="heatmap.png"/>
-    <h2>Distribution</h2>
-    <img src="distribution.png"/>
-    </body></html>
-    EOF
+  script:
+  """
+  cat <<EOF > ${name}_report.html
+  <html><head><title>${name} Report</title></head><body>
+  <h1>Dataset: ${name}</h1>
+  <img src="dataset_summary.png"/>
+  <h2>Summary</h2><img src="summary.png"/>
+  <h2>Dotplot</h2><img src="dotplot.png"/>
+  <h2>Heatmap</h2><img src="heatmap.png"/>
+  <h2>Distribution</h2><img src="distribution.png"/>
+  </body></html>
+  EOF
 
-    cp report.html ${params.final_html}
-    weasyprint ${params.final_html} ${params.final_pdf}
-    """
+  weasyprint ${name}_report.html ${name}_report.pdf
+  """
 }
+
+// ↓↓↓ All processes remain unchanged from previous full version ↓↓↓
 
