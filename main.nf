@@ -1,138 +1,190 @@
-#!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-params.h5ads           = "${baseDir}/data/*.h5ad"
-params.label_key       = "celltype_level3_fullname"
-params.embedding_key   = "X_umap"
-params.metric          = "euclidean"
-params.fscore_path     = null
-params.mapping_path    = null
-params.output_dir      = "results"
-params.container       = "ghcr.io/myorg/scsilhouette:latest" // or your Dockerhub
+params.h5ad_path     = "data/sample.h5ad"
+params.label_keys    = "cell_type"
+params.embedding_key = "X_umap"
+params.fscore_path   = "data/nsforest_scores.csv"
+params.mapping_path  = "data/cell_type_cluster_map.csv"
+params.outdir        = "results"
+params.final_html    = "results/final_report.html"
+params.final_pdf     = "results/final_report.pdf"
 
 workflow {
-  Channel
-    .fromPath(params.h5ads)
-    .map { file -> 
-      def tag = file.baseName.replace('.h5ad','')
-      tuple(file, tag)
-    }
-    | compute_silhouette
-    | visualize_all
-    | make_report
+    scores_ch = computeSilhouette(params.h5ad_path)
+
+    summary_ch      = vizSummary(scores_ch.silhouette_scores)
+    dotplot_ch      = vizDotplot(scores_ch.silhouette_scores, scores_ch.cluster_summary)
+    heatmap_ch      = vizHeatmap(scores_ch.silhouette_scores, scores_ch.cluster_summary)
+    dist_ch         = vizDistribution(scores_ch.silhouette_scores)
+    dataset_ch      = vizDatasetSummary(scores_ch.silhouette_scores)
+
+    mergeReport(
+        summary_ch,
+        dotplot_ch,
+        heatmap_ch,
+        dist_ch,
+        dataset_ch
+    )
 }
 
-process compute_silhouette {
+process computeSilhouette {
+    input:
+    path h5ad_file from file(params.h5ad_path)
 
-  publishDir "${params.output_dir}", mode: 'copy'
+    output:
+    path "*_silhouette_scores.csv", emit: silhouette_scores
+    path "*_cluster_summary.csv",  emit: cluster_summary
 
-  container "${params.container}"
+    publishDir "${params.outdir}/scores", mode: 'copy'
+    container: "ghcr.io/nih-nlm/scsilhouette:latest"
 
-  input:
-  path h5ad
-  val tag
-
-  output:
-  path "results/silhouette_scores_${tag}_*.csv"
-  path "results/cluster_summary_${tag}_*.csv"
-
-  script:
-  """
-  scsilhouette compute-silhouette \\
-    --h5ad-path $h5ad \\
-    --label-key ${params.label_key} \\
-    --embedding-key ${params.embedding_key} \\
-    --metric ${params.metric} \\
-    --output-dir results \\
-    --save-scores --save-cluster-summary --save-annotation
-  """
+    script:
+    """
+    scsilhouette compute-silhouette \\
+      --h5ad-path ${h5ad_file} \\
+      --label-keys ${params.label_keys} \\
+      --embedding-key ${params.embedding_key} \\
+      --output-dir . \\
+      --save-scores --save-cluster-summary
+    """
 }
 
-process visualize_all {
+process vizSummary {
+    input:
+    path silhouette_scores
 
-  publishDir "${params.output_dir}", mode: 'copy'
+    output:
+    path "*", emit: summary_output
 
-  container "${params.container}"
+    publishDir "${params.outdir}/summary", mode: 'copy'
+    container: "ghcr.io/nih-nlm/scsilhouette:latest"
 
-  input:
-  path silhouette_scores
-  path cluster_summary
-
-  script:
-  def tag = silhouette_scores.name.replaceFirst(/silhouette_scores_/, "").replaceFirst(/.csv$/, "")
-  def suffix = "_${tag}"
-
-  """
-  scsilhouette viz-summary \\
-    --silhouette-score-path $silhouette_scores \\
-    --output-dir results \\
-    --label ${params.label_key} \\
-    --score-col silhouette_score \\
-    --sort-by median \\
-    --suffix "$suffix"
-
-  scsilhouette viz-correlation \\
-    --cluster-summary-path $cluster_summary \\
-    --output-dir results \\
-    --silhouette-metrics mean,median,std \\
-    --score-col f_score \\
-    --suffix "$suffix"
-
-  scsilhouette viz-dataset-summary \\
-    --cluster-summary-path $cluster_summary \\
-    --output-dir results \\
-    --label ${params.label_key} \\
-    --suffix "$suffix"
-
-  scsilhouette viz-distribution \\
-    --input-path $cluster_summary \\
-    --score-col mean_silhouette \\
-    --label ${params.label_key} \\
-    --output-dir results \\
-    --suffix "$suffix"
-
-  scsilhouette viz-distribution \\
-    --input-path $cluster_summary \\
-    --score-col f_score \\
-    --label ${params.label_key} \\
-    --output-dir results \\
-    --suffix "$suffix"
-
-  scsilhouette viz-dotplot \\
-    --score-path $silhouette_scores \\
-    --label ${params.label_key} \\
-    --score-col silhouette_score \\
-    --output-dir results \\
-    --suffix "$suffix"
-
-  scsilhouette viz-heatmap \\
-    --score-path $silhouette_scores \\
-    --label ${params.label_key} \\
-    --score-col silhouette_score \\
-    --output-dir results \\
-    --suffix "$suffix"
-  """
+    script:
+    """
+    scsilhouette viz-summary \\
+      --silhouette-score-path ${silhouette_scores} \\
+      --output-dir . \\
+      --label ${params.label_keys} \\
+      --score-col silhouette_score_euclidean \\
+      --fscore-path ${params.fscore_path} \\
+      --mapping-path ${params.mapping_path} \\
+      --show --export-csv
+    """
 }
 
-process make_report {
+process vizDotplot {
+    input:
+    path silhouette_scores
+    path cluster_summary
 
-  publishDir "${params.output_dir}/report", mode: 'copy'
+    output:
+    path "*", emit: dotplot_output
 
-  container "${params.container}"
+    publishDir "${params.outdir}/dotplot", mode: 'copy'
+    container: "ghcr.io/nih-nlm/scsilhouette:latest"
 
-  input:
-  path("results/*summary*.png")
-  path("results/*heatmap*.png")
-  path("results/*dotplot*.png")
-  path("results/*distribution*.png")
-  path("results/*correlation*.png")
-  path("results/*summary*.csv")
-
-  output:
-  path "report.html"
-
-  script:
-  """
-  python src/scsilhouette/report_generator.py --input-dir results --output report.html
-  """
+    script:
+    """
+    scsilhouette viz-dotplot \\
+      --silhouette-score-path ${silhouette_scores} \\
+      --cluster-summary-path ${cluster_summary} \\
+      --output-dir . \\
+      --label ${params.label_keys}
+    """
 }
+
+process vizHeatmap {
+    input:
+    path silhouette_scores
+    path cluster_summary
+
+    output:
+    path "*", emit: heatmap_output
+
+    publishDir "${params.outdir}/heatmap", mode: 'copy'
+    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+
+    script:
+    """
+    scsilhouette viz-heatmap \\
+      --silhouette-score-path ${silhouette_scores} \\
+      --cluster-summary-path ${cluster_summary} \\
+      --output-dir . \\
+      --label ${params.label_keys}
+    """
+}
+
+process vizDistribution {
+    input:
+    path silhouette_scores
+
+    output:
+    path "*", emit: distribution_output
+
+    publishDir "${params.outdir}/distribution", mode: 'copy'
+    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+
+    script:
+    """
+    scsilhouette viz-distribution \\
+      --silhouette-score-path ${silhouette_scores} \\
+      --output-dir . \\
+      --label ${params.label_keys}
+    """
+}
+
+process vizDatasetSummary {
+    input:
+    path silhouette_scores
+
+    output:
+    path "*", emit: dataset_summary_output
+
+    publishDir "${params.outdir}/dataset_summary", mode: 'copy'
+    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+
+    script:
+    """
+    scsilhouette viz-dataset-summary \\
+      --silhouette-score-path ${silhouette_scores} \\
+      --output-dir .
+    """
+}
+
+process mergeReport {
+    input:
+    path summary_files
+    path dotplot_files
+    path heatmap_files
+    path dist_files
+    path dataset_summary_files
+
+    output:
+    path "${params.final_html}"
+    path "${params.final_pdf}"
+
+    publishDir "${params.outdir}", mode: 'copy'
+    container: "ghcr.io/nih-nlm/scsilhouette:latest"
+
+    script:
+    """
+    cat <<EOF > report.html
+    <html><head><title>scSilhouette Report</title></head><body>
+    <h1>Dataset Summary</h1>
+    <img src="dataset_summary.png"/>
+    <h2>Silhouette Summary</h2>
+    <img src="summary.png"/>
+    <h2>Dotplot</h2>
+    <img src="dotplot.png"/>
+    <h2>Heatmap</h2>
+    <img src="heatmap.png"/>
+    <h2>Distribution</h2>
+    <img src="distribution.png"/>
+    </body></html>
+    EOF
+
+    cp report.html ${params.final_html}
+    weasyprint ${params.final_html} ${params.final_pdf}
+    """
+}
+
