@@ -1,61 +1,65 @@
-nextflow.enable.dsl=2
+#!/usr/bin/env nextflow
 
-params.h5ad           = null
-params.label_key      = null
-params.embedding_key  = null
-params.datasets       = null
-params.datasets_csv   = null
-params.outdir         = "results"
+params.datasets_csv         = "datasets.csv"
+params.outdir               = "results"
+params.metric               = "euclidean"
+params.save_scores          = true
+params.save_cluster_summary = true
+params.save_annotation      = true
 
-// --- Include process modules ---
-include { COMPUTE_SILHOUETTE }        from './modules/compute_silhouette.nf'
-include { VIZ_SUMMARY }               from './modules/viz_summary.nf'
-include { VIZ_DOTPLOT }               from './modules/viz_dotplot.nf'
-include { VIZ_HEATMAP }               from './modules/viz_heatmap.nf'
-include { VIZ_DISTRIBUTION }          from './modules/viz_distribution.nf'
-include { VIZ_DATASET_SUMMARY }       from './modules/viz_dataset_summary.nf'
-include { MERGE_REPORT }              from './modules/merge_report.nf'
+// include { COMPUTE_SILHOUETTE }  from './modules/computeSilhouette.nf'
 
-// --- Input Channel Setup ---
+
 workflow {
 
-    dataset_triples_ch = params.datasets_csv ?
-        Channel
-            .fromPath(params.datasets_csv)
-            .splitCsv(header: true)
-            .map { row -> 
-                def name = row.h5ad.tokenize('/').last().replace('.h5ad','')
-                tuple(file(row.h5ad), row.label_key, row.embedding_key, name)
-            } :
-        params.datasets ?
-        Channel
-            .from(params.datasets)
-            .map { h5ad, label, embed ->
-                def name = h5ad.tokenize('/').last().replace('.h5ad','')
-                tuple(file(h5ad), label, embed, name)
-            } :
-        Channel
-            .value([
-                file(params.h5ad),
-                params.label_key,
-                params.embedding_key,
-                params.h5ad.tokenize('/').last().replace('.h5ad','')
-            ])
+  csv_rows_ch = Channel
+    .fromPath(params.datasets_csv)
+    .splitCsv(header: true)
 
-    // --- Run pipeline steps ---
-    silhouette_out_ch     = COMPUTE_SILHOUETTE(dataset_triples_ch)
-    summary_out_ch        = VIZ_SUMMARY(silhouette_out_ch)
-    dotplot_out_ch        = VIZ_DOTPLOT(silhouette_out_ch)
-    heatmap_out_ch        = VIZ_HEATMAP(silhouette_out_ch)
-    distribution_out_ch   = VIZ_DISTRIBUTION(silhouette_out_ch)
-    dataset_summary_ch    = VIZ_DATASET_SUMMARY(silhouette_out_ch)
+  h5ad_ch          = csv_rows_ch.map { row -> file(row.h5ad) }
+  label_key_ch     = csv_rows_ch.map { row -> row.label_key }
+  embedding_key_ch = csv_rows_ch.map { row -> row.embedding_key }
 
-    report_out_ch = MERGE_REPORT(
-        summary_out_ch,
-        dotplot_out_ch,
-        heatmap_out_ch,
-        distribution_out_ch,
-        dataset_summary_ch
-    )
+  compute_silhouette_process(
+                 h5ad_ch,
+		 label_key_ch,
+		 embedding_key_ch,
+		 params.output_dir,
+		 params.metric,
+		 params.save_scores,
+		 params.save_cluster_summary,
+		 params.save_annotation)
+		 
 }
 
+process compute_silhouette_process {
+
+    tag { "compute_silhouette_process" }
+
+
+    input:
+        path h5ad_file
+        val  label_key
+        val  embedding_key
+        path output_dir
+        val  metric
+        val  save_scores
+        val  save_cluster_summary
+        val  save_annotation
+
+    output:
+        tuple path("silhouette_scores*.csv"), path("cluster_summary*.csv")
+
+    script:
+    """
+    scsilhouette compute-silhouette \\
+	--h5ad-path ${h5ad_file} \\
+	--label-keys ${label_key} \\
+	--embedding-key ${embedding_key} \\
+	--output-dir . \\
+	--metric ${metric} \\
+	--save-scores \\
+	--save-cluster-summary \\
+	--save-annotation
+    """
+}
