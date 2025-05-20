@@ -1,25 +1,33 @@
-process COMPUTE_SILHOUETTE {
-  input:
-  path h5ad_file
-  val  label_keys
-  val  embedding_key
-  val  name
+#!/usr/bin/env nextflow
 
-  output:
-  tuple path("*_silhouette_scores.csv"), path("*_cluster_summary.csv"), val(name)
+process compute_silhouette_process {
 
-  publishDir "${params.outdir}/${name}/scores", mode: 'copy'
-  container "ghcr.io/nih-nlm/scsilhouette:latest"
+    tag { "compute_silhouette_process" }
 
-  script:
-  """
-  scsilhouette compute-silhouette \\
-    --h5ad-path ${h5ad_file} \\
-    --label-keys ${label_keys} \\
-    --embedding-key ${embedding_key} \\
-    --output-dir . \\
-    --save-scores \\
-    --save-cluster-summary
-  """
+
+    input:
+        path h5ad_file
+        val  label_key
+        val  embedding_key
+        path output_dir
+        val  metric
+        val  save_scores
+        val  save_cluster_summary
+        val  save_annotation
+
+    output:
+        tuple path("silhouette_scores*.csv"), path("cluster_summary*.csv")
+
+    script:
+    """
+    scsilhouette compute-silhouette \\
+	--h5ad-path ${h5ad_file} \\
+	--label-keys ${label_key} \\
+	--embedding-key ${embedding_key} \\
+	--output-dir . \\
+	--metric ${metric} \\
+	--save-scores \\
+	--save-cluster-summary \\
+	--save-annotation
+    """
 }
-
