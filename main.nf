@@ -7,7 +7,7 @@ params.save_scores          = true
 params.save_cluster_summary = true
 params.save_annotation      = true
 
-include { compute_silhouette_process }  from "./modules/compute_silhouette.nf"
+include { compute_silhouette_process }  from './modules/compute_silhouette.nf'
 
 
 workflow {
