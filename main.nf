@@ -1,12 +1,5 @@
 #!/usr/bin/env nextflow
 
-params.datasets_csv         = "datasets.csv"
-params.outdir               = "results"
-params.metric               = "euclidean"
-params.save_scores          = true
-params.save_cluster_summary = true
-params.save_annotation      = true
-
 include { compute_silhouette_process }  from './modules/compute_silhouette.nf'
 
 
