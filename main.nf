@@ -24,7 +24,7 @@ workflow {
                  h5ad_ch,
 		 label_key_ch,
 		 embedding_key_ch,
-		 params.output_dir,
+		 params.outdir,
 		 params.metric,
 		 params.save_scores,
 		 params.save_cluster_summary,
