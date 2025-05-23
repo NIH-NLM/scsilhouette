@@ -24,7 +24,7 @@ process compute_silhouette_process {
 	--h5ad-path ${h5ad_file} \\
 	--label-key ${label_key} \\
 	--embedding-key ${embedding_key} \\
-	--output-dir . \\
+	--output-dir ${params.outdir} \\
 	--metric ${metric} \\
 	--save-scores \\
 	--save-cluster-summary \\
