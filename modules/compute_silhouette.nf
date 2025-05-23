@@ -9,7 +9,7 @@ process compute_silhouette_process {
         path h5ad_file
         val  label_key
         val  embedding_key
-        path output_dir
+        path outdir
         val  metric
         val  save_scores
         val  save_cluster_summary
@@ -21,10 +21,10 @@ process compute_silhouette_process {
     script:
     """
     scsilhouette compute-silhouette \\
-	--h5ad-path ${h5ad_file} \\
-	--label-key ${label_key} \\
-	--embedding-key ${embedding_key} \\
-	--output-dir ${params.outdir} \\
+	--h5ad_path ${h5ad_file} \\
+	--label_key ${label_key} \\
+	--embedding_key ${embedding_key} \\
+	--outdir ${params.outdir} \\
 	--metric ${metric} \\
 	--save-scores \\
 	--save-cluster-summary \\
