@@ -22,7 +22,7 @@ process compute_silhouette_process {
     """
     scsilhouette compute-silhouette \\
 	--h5ad-path ${h5ad_file} \\
-	--label-keys ${label_key} \\
+	--label-key ${label_key} \\
 	--embedding-key ${embedding_key} \\
 	--output-dir . \\
 	--metric ${metric} \\
