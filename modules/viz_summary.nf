@@ -1,24 +1,27 @@
-process vizSummary {
-  input:
-  path silhouette_scores
-  val  label_keys
-  val  name
+#!/usr/bin/env nextflow
 
-  output:
-  path("*")
+process viz_summary_process {
 
-  publishDir "${params.outdir}/${name}/summary", mode: 'copy'
-  container "ghcr.io/nih-nlm/scsilhouette:latest"
+    tag { "viz_summary_process" }
+  
+    input:
+        path silhouette_scores_path
+        val  label
+        val  score_col
+        val  sort_by
 
-  script:
-  """
-  scsilhouette viz-summary \\
-    --silhouette-score-path ${silhouette_scores} \\
-    --output-dir . \\
-    --label ${label_keys} \\
-    --score-col silhouette_score_euclidean \\
-    --fscore-path data/nsforest_scores.csv \\
-    --mapping-path data/cell_type_cluster_map.csv \\
-    --show --export-csv
-  """
+    output:
+        path("*")
+
+    script:
+    """
+    scsilhouette viz-summary \\
+        --silhouette-score-path ${silhouette_scores_path} \\
+        --label ${label} \\
+        --sort_by ${sort_by} \\
+        --score-col ${score_col} \\
+        --sort-by ${sort_by}
+    """
 }
+
+

@@ -11,7 +11,6 @@ import scanpy as sc
 
 def plot_silhouette_summary(
     silhouette_score_path: str,
-    output_dir: str,
     label: str,
     score_col: str,
     fscore_path: Optional[str] = None,
@@ -59,18 +58,17 @@ def plot_silhouette_summary(
     ax.set_title(f"Silhouette Summary with F-score per {label}")
     ax.legend()
 
-    fig.savefig(os.path.join(output_dir, f"fscore_silhouette_summary_{suffix}.png"), bbox_inches="tight")
-    if show:
-        plt.show()
+    fig.savefig(f"fscore_silhouette_summary_{suffix}.png", bbox_inches="tight")
+#    if show:
+#        plt.show()
     plt.close(fig)
 
     # to do - add the cell count from the fscore file to the summary with the fscore,ppv, tn, fp, fn, tp to this file output
     
-    grouped.to_csv(os.path.join(output_dir, f"fscore_silhouette_ummary_{prefix}.csv"), index=False)
+    grouped.to_csv(f"fscore_silhouette_ummary_{prefix}.csv", index=False)
 
 def plot_correlation_summary(
     cluster_summary_path: str,
-    output_dir: str,
     x_metric: str,
     y_metrics: List[str],
     label: str,
@@ -110,19 +108,18 @@ def plot_correlation_summary(
         ax.set_ylabel(y_metric)
         fig.tight_layout()
 
-        fig.savefig(os.path.join(output_dir, f"{x_metric}_vs_{y_metric}_{suffix}.png"))
+        fig.savefig(f"{x_metric}_vs_{y_metric}_{suffix}.png")
         if show:
             plt.show()
         plt.close(fig)
 
     results_df = pd.DataFrame(results)
-    results_df.to_csv(os.path.join(output_dir, f"correlation_results_{suffix}.csv"), index=False)
+    results_df.to_csv(f"correlation_results_{suffix}.csv", index=False)
 
 def plot_dotplot(
     h5ad_path: str,
     groupby: str,
     embedding_key: str,
-    output_dir: str,
     show: bool = False,
 ):
     adata = sc.read_h5ad(h5ad_path)
@@ -142,7 +139,6 @@ def plot_heatmap(
     h5ad_path: str,
     groupby: str,
     embedding_key: str,
-    output_dir: str,
     suffix: str = "",
     show: bool = False,
 ):
@@ -228,7 +224,6 @@ def plot_distribution(
 def plot_dataset_summary(
     cluster_summary_path: str,
     label: str,
-    output_dir: str,
     show: bool = False
 ):
     df = pd.read_csv(cluster_summary_path)
@@ -274,8 +269,7 @@ def plot_dataset_summary(
     fig.suptitle(f"Cluster Summary by Quartile (Group by mean silhouette) — {label}", fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.97])
 
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    outfile = Path(output_dir) / f"{prefix}_dataset_summary_quartiles.png"
+    outfile = f"{prefix}_dataset_summary_quartiles.png"
     fig.savefig(outfile, dpi=300)
     if show:
         plt.show()

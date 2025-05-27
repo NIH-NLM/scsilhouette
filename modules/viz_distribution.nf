@@ -1,21 +1,21 @@
-process vizDistribution {
-  input:
-  path silhouette_scores
-  val  label_keys
-  val  name
+#!/usr/bin/env nextflow
 
-  output:
-  path("*")
+process viz_distribution_process {
 
-  publishDir "${params.outdir}/${name}/distribution", mode: 'copy'
-  container "ghcr.io/nih-nlm/scsilhouette:latest"
+    tag ( "viz_distribution_process" }
 
-  script:
-  """
-  scsilhouette viz-distribution \\
-    --silhouette-score-path ${silhouette_scores} \\
-    --output-dir . \\
-    --label ${label_keys}
-  """
+    input:
+        path cluster_summary
+        val  label
+
+    output:
+        path("*")
+
+    script:
+    """
+    scsilhouette viz-distribution \\
+        --silhouette-score-path ${silhouette_scores} \\
+        --label label
+    """
 }
 

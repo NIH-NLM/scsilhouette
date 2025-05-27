@@ -1,23 +1,20 @@
-process vizHeatmap {
-  input:
-  path silhouette_scores
-  path cluster_summary
-  val  label_keys
-  val  name
+#!/usr/bin/env nextflow
 
-  output:
-  path("*")
+process viz_heatmap_process {
+    input:
+        path h5ad_path
+        val  groupby
+        val  embedding_key
 
-  publishDir "${params.outdir}/${name}/heatmap", mode: 'copy'
-  container "ghcr.io/nih-nlm/scsilhouette:latest"
+    output:
+        path("*")
 
-  script:
-  """
-  scsilhouette viz-heatmap \\
-    --silhouette-score-path ${silhouette_scores} \\
-    --cluster-summary-path ${cluster_summary} \\
-    --output-dir . \\
-    --label ${label_keys}
-  """
+    script:
+    """
+    scsilhouette viz-heatmap \\
+        --h5ad-path ${h5ad_path} \\
+        --groupby ${groupby} \\
+        --embedding-key ${embedding_key}
+    """
 }
 

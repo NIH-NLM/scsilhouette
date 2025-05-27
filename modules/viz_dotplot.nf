@@ -1,24 +1,23 @@
+#!/usr/bin/env nextflow
 
-process vizDotplot {
-  input:
-  path silhouette_scores
-  path cluster_summary
-  val  label_keys
-  val  name
+process viz_dotplot_process {
 
-  output:
-  path("*")
+    tag ( "viz_dotplot_process" }
+  
+    input:
+        path h5ad_path
+        val  groupby
+        val  embedding_key
 
-  publishDir "${params.outdir}/${name}/dotplot", mode: 'copy'
-  container "ghcr.io/nih-nlm/scsilhouette:latest"
+    output:
+        path("*")
 
-  script:
-  """
-  scsilhouette viz-dotplot \\
-    --silhouette-score-path ${silhouette_scores} \\
-    --cluster-summary-path ${cluster_summary} \\
-    --output-dir . \\
-    --label ${label_keys}
-  """
+    script:
+    """
+    scsilhouette viz-dotplot \\
+        --h5ad-path h5ad_path \\
+        --groupby groupby \\
+        --embedding-key embedding_key
+    """
 }
 

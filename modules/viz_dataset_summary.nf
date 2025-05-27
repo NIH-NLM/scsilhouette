@@ -1,19 +1,21 @@
-process vizDatasetSummary {
-  input:
-  path silhouette_scores
-  val  name
+#!/usr/bin/env nextflow
 
-  output:
-  path("*")
+process viz_dataset_summary_process {
 
-  publishDir "${params.outdir}/${name}/dataset_summary", mode: 'copy'
-  container "ghcr.io/nih-nlm/scsilhouette:latest"
+    tag ( "viz_dataset_summary_process" }
 
-  script:
-  """
-  scsilhouette viz-dataset-summary \\
-    --silhouette-score-path ${silhouette_scores} \\
-    --output-dir .
-  """
+    input:
+        path cluster_summary_path
+        val  label
+    
+    output:
+        path("*")
+
+    script:
+    """
+    scsilhouette viz-dataset-summary \\
+    --cluster-summary-path ${cluster_summary_path} \\
+    --label ${label}
+    """
 }
 
