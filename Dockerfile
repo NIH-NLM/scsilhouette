@@ -14,6 +14,5 @@ RUN micromamba install -y -n base -f environment.yml && \
 
 # Set Python path and entry point
 ENV PYTHONPATH=/app/src
-ENTRYPOINT ["scsilhouette"]
-CMD ["--help"]
+ENTRYPOINT [""]
 
