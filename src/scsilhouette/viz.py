@@ -135,27 +135,6 @@ def plot_dotplot(
     )
 
 
-def plot_heatmap(
-    h5ad_path: str,
-    groupby: str,
-    embedding_key: str,
-    suffix: str = "",
-    show: bool = False,
-):
-    adata = sc.read_h5ad(h5ad_path)
-    prefix = Path(h5ad_path).stem
-    suffix = prefix
-
-    sc.pl.embedding(
-        adata,
-        basis=embedding_key.replace("X_", ""),
-        color=groupby,
-        cmap="viridis",
-        show=show,
-        save=f"heatmap_{suffix}_{embedding_key}.png",
-    )
-
-
 def plot_distribution(
     summary_csv: str,
     label_key: str,
