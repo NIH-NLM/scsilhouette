@@ -1,4 +1,4 @@
-name: scrnaseq_silhouette
+name: scsilhouette
 channels:
   - conda-forge
   - bioconda
