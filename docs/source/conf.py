@@ -18,6 +18,8 @@ sys.path.insert(0, os.path.abspath('../../src'))
 project = 'scsilhouette'
 copyright = '2025, NIH/NLM'
 author = 'NIH/NLM'
+release = 'v.1.0'
+
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

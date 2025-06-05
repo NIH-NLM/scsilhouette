@@ -36,12 +36,6 @@ Features
    scsilhouette.nsforest.cli
 
 .. toctree::
-   :maxdepth: 2
-   :caption: API Reference
-
-   modules
-
-.. toctree::
    :maxdepth: 1
    :caption: Repository
 
