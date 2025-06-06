@@ -20,7 +20,6 @@ dependencies:
   - sphinx
   - sphinx-rtd-theme
   - sphinx-autodoc-typehints
-  - typer
   - myst-parser
   - nextflow
   # R Kernel and R dependencies
@@ -38,6 +37,7 @@ dependencies:
   # Additional utilities
   - pip
   - pip:
+      - typer
       - scvi-tools
       - scikit-learn
       - jupyterlab-git

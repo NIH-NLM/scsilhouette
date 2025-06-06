@@ -14,8 +14,10 @@ RUN conda env create --quiet --name ${ENV_NAME} --file /root/environment.yml -y 
 
 # Enable activation of required conda environment when running the
 # container with Docker
-RUN cp .bashrc .bashrc.orig && \
-    sed "s/conda activate base/conda activate $ENV_NAME/" .bashrc.orig > .bashrc
+# Activate environment by default and set PATH
+RUN echo "conda activate $ENV_NAME" >> ~/.bashrc
+ENV PATH /opt/conda/envs/$ENV_Name/bin:$PATH
+
 
 # Clone the repository and checkout the specified release
 ARG VERSION="v1.0.1"
@@ -35,4 +37,3 @@ RUN apt-get update && \
     apt-get clean -y
 
 ENTRYPOINT [""]
-
