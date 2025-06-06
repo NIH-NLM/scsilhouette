@@ -16,7 +16,7 @@ RUN conda env create --quiet --name ${ENV_NAME} --file /root/environment.yml -y 
 # container with Docker
 # Activate environment by default and set PATH
 RUN echo "conda activate $ENV_NAME" >> ~/.bashrc
-ENV PATH /opt/conda/envs/$ENV_Name/bin:$PATH
+ENV PATH /opt/conda/envs/$ENV_NAME/bin:$PATH
 
 
 # Clone the repository and checkout the specified release
