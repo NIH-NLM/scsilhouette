@@ -105,11 +105,11 @@ def viz_heatmap_command(
 
 @app.command("viz-distribution")
 def viz_distribution_command(
-    summary_csv: Path = typer.Option(..., help="CSV file from compute-silhouette with mean, median, std, count"),
+    cluster_summary_path: Path = typer.Option(..., help="CSV file from compute-silhouette with mean, median, std, count"),
     label_key: str = typer.Option(..., help="Column name used as x-axis (e.g., ann_finest_level)"),
 ):
     viz.plot_distribution(
-        summary_csv=str(summary_csv),
+        cluster_summary_path=str(cluster_summary_path),
         label_key=label_key,
     )
 
