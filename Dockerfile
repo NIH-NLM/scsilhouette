@@ -23,7 +23,6 @@ ENV PATH=/opt/conda/envs/$ENV_NAME/bin:$PATH
 ARG VERSION="v1.0.1"
 RUN git clone https://github.com/NIH-NLM/scsilhouette.git && \
     cd scsilhouette && \
-    git checkout ${VERSION} && \
     pip install -e .
 
 # Add conda installation directory to PATH (eliminates need to
