@@ -105,9 +105,9 @@ def plot_silhouette_summary(
     )
 
     fig.update_layout(
-        title=f"Silhouette Summary with F-score per {label}",
+        title=f"Silhouette Summary per {label}",
         xaxis=dict(title=label, tickangle=45),
-        yaxis=dict(title="Silhouette / F-score"),
+        yaxis=dict(title="Silhouette Score"),
         barmode="group",
         legend=dict(x=1.01, y=1),
         margin=dict(l=50, r=50, t=80, b=150),
