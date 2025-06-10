@@ -1,6 +1,7 @@
 # src/scsilhouette/viz.py (Plotly: auto-export to HTML, SVG, PNG for Nextflow)
 import os
 from pathlib import Path
+import scanpy as sc
 from typing import Optional, List
 import pandas as pd
 import numpy as np
