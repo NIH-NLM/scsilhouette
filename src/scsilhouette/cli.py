@@ -36,7 +36,7 @@ def compute_silhouette_command(
 def viz_summary_command(
     silhouette_score_path: Path = typer.Option(...),
     label: str = typer.Option(...),
-    score_col: str = typer.Option(...),
+    silhouette_score_col: str = typer.Option(...),
     fscore_path: Optional[Path] = typer.Option(None),
     mapping_path: Optional[Path] = typer.Option(None),
     show: bool = typer.Option(False),
@@ -45,7 +45,7 @@ def viz_summary_command(
     viz.plot_silhouette_summary(
         silhouette_score_path=str(silhouette_score_path),
         label=label,
-        score_col=score_col,
+        silhouette_score_col=silhouette_score_col,
         fscore_path=str(fscore_path) if fscore_path else None,
         mapping_path=str(mapping_path) if mapping_path else None,
         show=show,
@@ -88,7 +88,7 @@ def viz_dotplot_command(
     viz.plot_dotplot(
         h5ad_path=h5ad_path,
         embedding_key=embedding_key,
-        groupby=label_key,
+        label_key=label_key,
     )
 
 @app.command("viz-heatmap")

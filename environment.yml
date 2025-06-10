@@ -37,6 +37,8 @@ dependencies:
   # Additional utilities
   - pip
   - pip:
+      - kaleido
+      - plotly
       - typer
       - scvi-tools
       - scikit-learn

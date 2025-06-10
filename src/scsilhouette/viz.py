@@ -1,18 +1,18 @@
-# src/scsilhouette/viz.py
+# src/scsilhouette/viz.py (Plotly: auto-export to HTML, SVG, PNG for Nextflow)
 import os
 from pathlib import Path
 from typing import Optional, List
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy.stats import pearsonr
-import scanpy as sc
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import plotly.io as pio
+
 
 def plot_silhouette_summary(
     silhouette_score_path: str,
     label: str,
-    score_col: str,
+    silhouette_score_col: str,
     fscore_path: Optional[str] = None,
     mapping_path: Optional[str] = None,
     show: bool = False,
@@ -21,51 +21,115 @@ def plot_silhouette_summary(
     df = pd.read_csv(silhouette_score_path)
     prefix = Path(silhouette_score_path).stem
     suffix = prefix
-    
-    grouped = df.groupby(label)[score_col].agg(["mean", "std", "median", "count"]).reset_index()
 
+    grouped = df.groupby(label)[silhouette_score_col].agg([
+        "mean", "std", "median", "count", "min", "max",
+        lambda x: np.percentile(x, 25), lambda x: np.percentile(x, 75)
+    ]).reset_index()
+    grouped.columns = [label, "mean", "std", "median", "count", "min", "max", "q1", "q3"]
+
+    has_fscore = False
     if fscore_path and mapping_path:
         fscore_df = pd.read_csv(fscore_path)
         mapping = pd.read_csv(mapping_path)
         mapping.columns = [label, "clusterName"]
         fscore_df = fscore_df.merge(mapping, on="clusterName", how="inner")
-        grouped = grouped.merge(fscore_df[[label, "f_score"]], on=label, how="left")
+        grouped = grouped.merge(fscore_df[[label, "f_score"]], on=label, how="inner")
+        has_fscore = True
 
-    if sort_by not in ["mean", "median", "std"]:
-        raise ValueError("--sort-by must be one of 'mean', 'median', or 'std'")
+    grouped = grouped.sort_values(by=sort_by, ascending=False)
+    x = grouped[label].tolist()
 
-    grouped = grouped.sort_values(sort_by, ascending=False)
+    fig = go.Figure()
 
-    fig, ax = plt.subplots(figsize=(14, 6))
-    x = np.arange(len(grouped))
+    # IQR error bar
+    fig.add_trace(go.Bar(
+        x=x,
+        y=grouped["median"],
+        name="Median Silhouette",
+        marker_color="skyblue",
+        error_y=dict(
+            type='data',
+            symmetric=False,
+            array=grouped["q3"] - grouped["median"],
+            arrayminus=grouped["median"] - grouped["q1"],
+            thickness=1.5,
+            color='black'
+        )
+    ))
 
-    ax.bar(x - 0.2, grouped["median"], width=0.4, label="Median Silhouette")
+    # Mean dots
+    fig.add_trace(go.Scatter(
+        x=x,
+        y=grouped["mean"],
+        mode="markers",
+        name="Mean",
+        marker=dict(color="red", size=8, symbol="circle")
+    ))
 
-    if "f_score" in grouped.columns:
-        ax.bar(x + 0.2, grouped["f_score"], width=0.4, label="F-score")
-        for i, f in enumerate(grouped["f_score"]):
-            ax.text(i + 0.2, f + 0.02, f"F={f:.2f}", ha="center", fontsize=6)
+    # Optional F-score bars
+    if has_fscore:
+        fig.add_trace(go.Bar(
+            x=x,
+            y=grouped["f_score"],
+            name="F-score",
+            marker_color="orange",
+            opacity=0.6
+        ))
 
-    for i, (mean, std, median) in enumerate(zip(grouped["mean"], grouped["std"], grouped["median"])):
-        ax.errorbar(i - 0.2, mean, yerr=std, fmt='o', color='black', capsize=5)
-        ax.scatter(i - 0.2, median, color='red', zorder=5)
-        ax.text(i - 0.25, mean + std + 0.02, f"\u03BC={mean:.2f}", ha="center", fontsize=6)
-        ax.text(i - 0.20, mean + std + 0.06, f"M={median:.2f}", ha="center", fontsize=6)
+    # Global + cluster stats
+    global_mean = df[silhouette_score_col].mean()
+    global_median = df[silhouette_score_col].median()
+    global_std = df[silhouette_score_col].std()
+    cluster_mean_of_means = grouped["mean"].mean()
+    cluster_median_of_medians = grouped["median"].median()
+    cluster_std_of_stds = grouped["std"].mean()
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(grouped[label], rotation=90)
-    ax.set_ylabel("Silhouette / F-score")
-    ax.set_title(f"Silhouette Summary with F-score per {label}")
-    ax.legend()
+    stats_text = (
+        f"Global:\nMean={global_mean:.2f}, Median={global_median:.2f}, Std={global_std:.2f}\n"
+        f"Cluster:\nMean of Means={cluster_mean_of_means:.2f},\n"
+        f"Median of Medians={cluster_median_of_medians:.2f}, Mean of Stds={cluster_std_of_stds:.2f}"
+    )
 
-    fig.savefig(f"fscore_silhouette_summary_{suffix}.png", bbox_inches="tight")
-#    if show:
-#        plt.show()
-    plt.close(fig)
+    fig.add_annotation(
+        text=stats_text,
+        align="left",
+        showarrow=False,
+        xref="paper", yref="paper",
+        x=0.01, y=0.01,
+        bordercolor="black",
+        borderwidth=1,
+        bgcolor="white",
+        opacity=0.9,
+        font=dict(size=12)
+    )
 
-    # to do - add the cell count from the fscore file to the summary with the fscore,ppv, tn, fp, fn, tp to this file output
-    
-    grouped.to_csv(f"fscore_silhouette_ummary_{prefix}.csv", index=False)
+    fig.update_layout(
+        title=f"Silhouette Summary with F-score per {label}",
+        xaxis=dict(title=label, tickangle=45),
+        yaxis=dict(title="Silhouette / F-score"),
+        barmode="group",
+        legend=dict(x=1.01, y=1),
+        margin=dict(l=50, r=50, t=80, b=150),
+        height=600,
+    )
+
+    # Output files
+    outbase = f"{suffix}_silhouette_summary"
+    html_path = f"{outbase}.html"
+    svg_path = f"{outbase}.svg"
+    png_path = f"{outbase}.png"
+
+    fig.write_html(html_path)
+    pio.write_image(fig, svg_path, format='svg')
+    pio.write_image(fig, png_path, format='png')
+
+    print(f"Saved interactive HTML to {html_path}")
+    print(f"Saved static SVG to {svg_path}")
+    print(f"Saved PNG image to {png_path}")
+
+    if show:
+        fig.show()
 
 def plot_correlation_summary(
     cluster_summary_path: str,
@@ -118,7 +182,7 @@ def plot_correlation_summary(
 
 def plot_dotplot(
     h5ad_path: str,
-    groupby: str,
+    label_key: str,
     embedding_key: str,
     show: bool = False,
 ):
@@ -129,7 +193,7 @@ def plot_dotplot(
     sc.pl.embedding(
         adata,
         basis=embedding_key.replace("X_", ""),
-        color=groupby,
+        color=label_key,
         show=show,
         save=f"dotplot_{suffix}_{embedding_key}.png",
     )
