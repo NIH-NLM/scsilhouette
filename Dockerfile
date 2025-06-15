@@ -1,38 +1,34 @@
-# Pin base image
-# See: https://hub.docker.com/r/continuumio/miniconda3
-FROM continuumio/miniconda3:24.11.1-0
-LABEL description="Base docker image with conda and util libraries"
+# Base micromamba image
+FROM mambaorg/micromamba
 
-# Work in app
+LABEL description="Base docker image with micromamba and util libraries"
+
+# Work in /app
 WORKDIR /app
 
-# Install the conda environment
-ARG ENV_NAME=scsilhouette
-COPY environment.yml /root
-RUN conda env create --quiet --name ${ENV_NAME} --file /root/environment.yml -y && \
-    conda clean -a
+# Copy environment file and install into base environment
+COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/env.yaml
+RUN micromamba install -y -n base -f /tmp/env.yaml && \
+    micromamba clean --all --yes
 
-# Enable activation of required conda environment when running the
-# container with Docker
-# Activate environment by default and set PATH
-RUN echo "conda activate $ENV_NAME" >> ~/.bashrc
-ENV PATH=/opt/conda/envs/$ENV_NAME/bin:$PATH
+# Enable conda activation
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+RUN echo "micromamba activate base" >> ~/.bashrc
+ENV PATH=/opt/conda/envs/base/bin:$PATH
 
+# Temporarily become root to install OS packages
+USER root
+RUN apt-get update && \
+    apt-get install -y git procps && \
+    apt-get clean -y
 
-# Clone the repository and checkout the specified release
-ARG VERSION="v1.0.1"
+# Switch back to default user
+USER $MAMBA_USER
+
+# Clone repo and install the package
 RUN git clone https://github.com/NIH-NLM/scsilhouette.git && \
     cd scsilhouette && \
     pip install -e .
 
-# Add conda installation directory to PATH (eliminates need to
-# activate required conda environment when using Nextflow
-# as long as the names correspond)
-ENV PATH="/opt/conda/envs/$ENV_NAME/bin:$PATH"
-
-# Install procps (so that Nextflow can poll CPU usage)
-RUN apt-get update && \
-    apt-get install -y procps && \
-    apt-get clean -y
-
 ENTRYPOINT [""]
+

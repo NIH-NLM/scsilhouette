@@ -16,7 +16,6 @@ def plot_silhouette_summary(
     silhouette_score_col: str,
     fscore_path: Optional[str] = None,
     mapping_path: Optional[str] = None,
-    show: bool = False,
     sort_by: str = "median",
 ):
     df = pd.read_csv(silhouette_score_path)
@@ -129,15 +128,11 @@ def plot_silhouette_summary(
     print(f"Saved static SVG to {svg_path}")
     print(f"Saved PNG image to {png_path}")
 
-    if show:
-        fig.show()
-
 def plot_correlation_summary(
     cluster_summary_path: str,
     x_metric: str,
     y_metrics: List[str],
     label: str,
-    show: bool = False,
     fscore_path: Optional[str] = None,
     mapping_path: Optional[str] = None,
 ):
@@ -174,8 +169,6 @@ def plot_correlation_summary(
         fig.tight_layout()
 
         fig.savefig(f"{x_metric}_vs_{y_metric}_{suffix}.png")
-        if show:
-            plt.show()
         plt.close(fig)
 
     results_df = pd.DataFrame(results)
@@ -185,7 +178,6 @@ def plot_dotplot(
     h5ad_path: str,
     label_key: str,
     embedding_key: str,
-    show: bool = False,
 ):
     adata = sc.read_h5ad(h5ad_path)
     prefix = Path(h5ad_path).stem
@@ -195,7 +187,6 @@ def plot_dotplot(
         adata,
         basis=embedding_key.replace("X_", ""),
         color=label_key,
-        show=show,
         save=f"dotplot_{suffix}_{embedding_key}.png",
     )
 
@@ -265,56 +256,3 @@ def plot_distribution(
 
     print(f"[DONE] Saved: {prefix}_log10.png and {prefix}_raw.png")
 
-def plot_dataset_summary(
-    cluster_summary_path: str,
-    label: str,
-    show: bool = False
-):
-    df = pd.read_csv(cluster_summary_path)
-
-    prefix = Path(cluster_summary_path).stem
-
-    metrics = {
-        "mean_silhouette": "Mean Silhouette",
-        "median_silhouette": "Median Silhouette",
-        "std_silhouette": "Std Dev Silhouette",
-        "log10_count": "log10(Cluster Size)"
-    }
-
-    df["log10_count"] = np.log10(df["count"] + 1)
-
-    plots = []
-    ylims = {}
-
-    # Get global y-limits per row
-    for metric in metrics:
-        min_val = df[metric].min()
-        max_val = df[metric].max()
-        ylims[metric] = (min_val - 0.05, max_val + 0.05)
-
-    df["quartile"] = pd.qcut(df["mean_silhouette"], 4, labels=["Q1", "Q2", "Q3", "Q4"])
-
-    fig, axes = plt.subplots(nrows=4, ncols=4, figsize=(20, 16), sharex=False)
-    metric_keys = list(metrics.keys())
-    quartiles = ["Q1", "Q2", "Q3", "Q4"]
-
-    for row, metric in enumerate(metric_keys):
-        for col, q in enumerate(quartiles):
-            ax = axes[row][col]
-            subset = df[df["quartile"] == q]
-            sns.boxplot(y=subset[metric], ax=ax, color="lightgray")
-            sns.stripplot(y=subset[metric], ax=ax, color="blue", size=6, jitter=True, alpha=0.7)
-            ax.set_title(f"{metrics[metric]} in {q}")
-            ax.set_ylabel(metrics[metric] if col == 0 else "")
-            ax.set_ylim(ylims[metric])
-            for i, val in enumerate(subset[metric]):
-                ax.text(0, val, f"{val:.2f}", ha="left", va="center", fontsize=6)
-
-    fig.suptitle(f"Cluster Summary by Quartile (Group by mean silhouette) — {label}", fontsize=16)
-    plt.tight_layout(rect=[0, 0, 1, 0.97])
-
-    outfile = f"{prefix}_dataset_summary_quartiles.png"
-    fig.savefig(outfile, dpi=300)
-    if show:
-        plt.show()
-    plt.close(fig)

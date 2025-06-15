@@ -1,5 +1,4 @@
-.. scsilhouette documentation master file, created by
-   sphinx-quickstart on Mon Apr 15 12:00:00 2025.
+.. scsilhouette documentation master file
 
 Welcome to scsilhouette's documentation!
 ========================================
@@ -7,38 +6,26 @@ Welcome to scsilhouette's documentation!
 .. include:: ../README.md
    :parser: myst_parser.sphinx_
 
-.. image:: _static/summary_silhouette.png
-   :width: 600
-   :align: center
-
-Features
------------
-
-- Compute silhouette scores across label sets
-- Visualize summary stats and correlation with F-scores
-- NS-Forest cluster validation support
-- CLI and programmatic API access
-- Nextflow, Docker, and Conda-ready
+Contents
+--------
 
 .. toctree::
    :maxdepth: 2
-   :caption: Getting Started
+   :caption: Topics
 
    process
+   modules
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Command Line Interface
+Additional Resources
+--------------------
 
-   scsilhouette.compute.cli
-   scsilhouette.viz.cli
-   scsilhouette.download.cli
-   scsilhouette.nsforest.cli
+* `GitHub Repository <https://github.com/NIH-NLM/scsilhouette>`_
+* `Project Website <https://nih-nlm.github.io/scsilhouette>`_
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Repository
+Indices and tables
+==================
 
-   GitHub <https://github.com/NIH-NLM/scsilhouette>
-   Project Website <https://nih-nlm.github.io/scsilhouette>
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
 

@@ -17,7 +17,6 @@ def compute_silhouette_command(
     save_scores: bool = typer.Option(False),
     save_cluster_summary: bool = typer.Option(False),
     save_annotation: bool = typer.Option(False),
-    show_annotation: bool = typer.Option(False)
 ):
     compute.run_silhouette(
         h5ad_path=str(h5ad_path),
@@ -29,7 +28,6 @@ def compute_silhouette_command(
         save_scores=save_scores,
         save_cluster_summary=save_cluster_summary,
         save_annotation=save_annotation,
-        show_annotation=show_annotation
     )
 
 @app.command("viz-summary")
@@ -39,7 +37,6 @@ def viz_summary_command(
     silhouette_score_col: str = typer.Option(...),
     fscore_path: Optional[Path] = typer.Option(None),
     mapping_path: Optional[Path] = typer.Option(None),
-    show: bool = typer.Option(False),
     sort_by: str = typer.Option("median", help="Sort by mean|median|std")
 ):
     viz.plot_silhouette_summary(
@@ -48,7 +45,6 @@ def viz_summary_command(
         silhouette_score_col=silhouette_score_col,
         fscore_path=str(fscore_path) if fscore_path else None,
         mapping_path=str(mapping_path) if mapping_path else None,
-        show=show,
         sort_by=sort_by,
     )
     
@@ -58,7 +54,6 @@ def viz_correlation_command(
     x_metric: str = typer.Option(..., help="X-axis metric for correlation (e.g., fscore)"),
     y_metrics: str = typer.Option(..., help="Comma-separated list of Y-axis metrics (e.g., mean,median,std)"),
     label: str = typer.Option(..., help="Label column used for filenames and groupings"),
-    show: bool = typer.Option(False),
     fscore_path: Optional[Path] = typer.Option(None, help="Optional path to fscore CSV"),
     mapping_path: Optional[Path] = typer.Option(None, help="Optional mapping file to match cluster labels")
 ):
@@ -91,18 +86,6 @@ def viz_dotplot_command(
         label_key=label_key,
     )
 
-@app.command("viz-heatmap")
-def viz_heatmap_command(
-    h5ad_path: str = typer.Option(..., help="Path to input .h5ad file"),
-    embedding_key: str = typer.Option(..., help="Embedding key (X_umap, X_scanvi_emb)"),
-    label_key: str = typer.Option(..., help="Label key for heatmap grouping"),
-):
-    viz.plot_heatmap(
-        h5ad_path=h5ad_path,
-        embedding_key=embedding_key,
-        groupby=label_key,
-    )
-
 @app.command("viz-distribution")
 def viz_distribution_command(
     cluster_summary_path: Path = typer.Option(..., help="CSV file from compute-silhouette with mean, median, std, count"),
@@ -113,17 +96,6 @@ def viz_distribution_command(
         label_key=label_key,
     )
 
-@app.command("viz-dataset-summary")
-def viz_dataset_summary(
-    cluster_summary_path: str = typer.Option(..., help="Path to cluster_summary file created by the compute silhouette score"),
-    label: str = typer.Option(..., help="Label for the clusters"),
-    show: bool = typer.Option(False, help="Show the plot interactively")
-):
-    viz.plot_dataset_summary(
-        cluster_summary_path=cluster_summary_path,
-        label=label,
-        show=show,
-    )
 
 def main():
     app()
