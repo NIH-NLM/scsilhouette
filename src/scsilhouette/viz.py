@@ -7,7 +7,10 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import plotly.express as px
+from plotly.io import write_html, write_image
 import plotly.io as pio
+from scipy.stats import pearsonr
 
 
 def plot_silhouette_summary(
@@ -110,8 +113,9 @@ def plot_silhouette_summary(
         yaxis=dict(title="Silhouette Score"),
         barmode="group",
         legend=dict(x=1.01, y=1),
-        margin=dict(l=50, r=50, t=80, b=150),
+        margin=dict(l=60, r=60, t=80, b=60),
         height=600,
+        width=1200
     )
 
     # Output files
@@ -136,11 +140,15 @@ def plot_correlation_summary(
     fscore_path: Optional[str] = None,
     mapping_path: Optional[str] = None,
 ):
+    import pandas as pd
+    import plotly.express as px
+    from plotly.io import write_image, write_html
+    from pathlib import Path
+    from scipy.stats import pearsonr
+
     df = pd.read_csv(cluster_summary_path)
     prefix = Path(cluster_summary_path).stem
-    suffix = prefix
 
-    # Merge fscore if provided
     if fscore_path:
         fscore_df = pd.read_csv(fscore_path)
         if mapping_path:
@@ -159,20 +167,42 @@ def plot_correlation_summary(
         x = df[x_metric]
         y = df[y_metric]
         r, p = pearsonr(x, y)
-        results.append({"x_metric": x_metric, "y_metric": y_metric, "pearson_r": r, "p_value": p})
+        title = f"{y_metric} vs {x_metric} (r={r:.2f}, p={p:.3g})"
 
-        fig, ax = plt.subplots()
-        sns.regplot(x=x, y=y, ax=ax)
-        ax.set_title(f"{x_metric} vs {y_metric} (r={r:.2f}, p={p:.3f})")
-        ax.set_xlabel(x_metric)
-        ax.set_ylabel(y_metric)
-        fig.tight_layout()
+        fig = px.scatter(
+            df,
+            x=x_metric,
+            y=y_metric,
+            hover_name=label,
+            title=title,
+            width=1200,
+            height=600,
+        )
+        fig.add_shape(
+            type="line",
+            x0=x.min(), x1=x.max(),
+            y0=y.min(), y1=y.max(),
+            line=dict(dash="dot", color="gray")
+        )
 
-        fig.savefig(f"{x_metric}_vs_{y_metric}_{suffix}.png")
-        plt.close(fig)
+        output_prefix = f"{prefix}_{x_metric}_vs_{y_metric}"
+        try:
+            fig.write_html(f"{output_prefix}.html")
+            fig.write_image(f"{output_prefix}.svg")
+            fig.write_image(f"{output_prefix}.png")
+        except Exception as e:
+            print(f"[WARN] Export failed: {e}")
+
+        results.append({
+            "x": x_metric,
+            "y": y_metric,
+            "pearson_r": r,
+            "p_value": p,
+            "n": len(df)
+        })
 
     results_df = pd.DataFrame(results)
-    results_df.to_csv(f"correlation_results_{suffix}.csv", index=False)
+    results_df.to_csv(f"{prefix}_correlation_summary.csv", index=False)
 
 def plot_dotplot(
     h5ad_path: str,
@@ -190,69 +220,91 @@ def plot_dotplot(
         save=f"dotplot_{suffix}_{embedding_key}.png",
     )
 
-
 def plot_distribution(
-    summary_csv: str,
+    cluster_summary_path: str,
     label_key: str,
 ):
-    import pandas as pd
-    import matplotlib.pyplot as plt
-    import numpy as np
 
-    df = pd.read_csv(summary_csv)
-    prefix = Path(summary_csv).stem
+    df = pd.read_csv(cluster_summary_path)
+    prefix = Path(cluster_summary_path).stem
 
     df['count_log10'] = np.log10(df['count'].replace(0, np.nan))
 
-    # === Plot 1: Sorted by log10(cell count) ===
-    df_sorted_log = df.sort_values("count_log10", ascending=False).reset_index(drop=True)
-    fig_log, ax1 = plt.subplots(figsize=(18, 6))
+    # === Plot 1: log10 count + silhouette
+    df_log = df.sort_values("count_log10", ascending=False).reset_index(drop=True)
+    x = df_log[label_key]
 
-    ax1.bar(df_sorted_log[label_key], df_sorted_log["count_log10"], color="steelblue", label="log10(Cell Count)")
-    ax1.set_ylabel("log10(Cell Count)", color="steelblue")
-    ax1.tick_params(axis='y', labelcolor="steelblue")
-    ax1.tick_params(axis='x', rotation=90)
+    fig_log = make_subplots(specs=[[{"secondary_y": True}]])
 
-    ax2 = ax1.twinx()
-    ax2.plot(df_sorted_log[label_key], df_sorted_log["mean_silhouette"], color="blue", marker='o', label="Mean")
-    ax2.plot(df_sorted_log[label_key], df_sorted_log["median_silhouette"], color="red", marker='o', label="Median")
-    ax2.plot(df_sorted_log[label_key], df_sorted_log["std_silhouette"], color="black", marker='o', label="Std Dev")
-    ax2.set_ylabel("Silhouette Scores", color="black")
-    ax2.tick_params(axis='y', labelcolor="black")
+    fig_log.add_trace(go.Bar(
+        x=x, y=df_log["count_log10"],
+        name="log10(Cell Count)",
+        marker_color="steelblue"
+    ), secondary_y=False)
 
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax2.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+    fig_log.add_trace(go.Scatter(
+        x=x, y=df_log["mean_silhouette"],
+        name="Mean", mode="lines+markers", line=dict(color="blue")
+    ), secondary_y=True)
 
-    plt.title("Cluster Summary: log10(Cell Count) and Silhouette Metrics")
-    plt.tight_layout()
-    fig_log.savefig(f"{prefix}_log10.png")
-    plt.close(fig_log)
+    fig_log.add_trace(go.Scatter(
+        x=x, y=df_log["median_silhouette"],
+        name="Median", mode="lines+markers", line=dict(color="red")
+    ), secondary_y=True)
 
-    # === Plot 2: Sorted by raw count ===
-    df_sorted_raw = df.sort_values("count", ascending=False).reset_index(drop=True)
-    fig_raw, ax1_raw = plt.subplots(figsize=(18, 6))
+    fig_log.update_layout(
+        title="Cluster Cell Count (log10) vs Silhouette",
+        width=1200, height=600,
+        margin=dict(l=60, r=60, t=80, b=60),
+        xaxis_tickangle=90
+    )
 
-    ax1_raw.bar(df_sorted_raw[label_key], df_sorted_raw["count"], color="steelblue", label="Cell Count")
-    ax1_raw.set_ylabel("Cell Count", color="steelblue")
-    ax1_raw.tick_params(axis='y', labelcolor="steelblue")
-    ax1_raw.tick_params(axis='x', rotation=90)
+    fig_log.update_yaxes(title_text="log10(Cell Count)", secondary_y=False)
+    fig_log.update_yaxes(title_text="Silhouette Score", secondary_y=True)
 
-    ax2_raw = ax1_raw.twinx()
-    ax2_raw.plot(df_sorted_raw[label_key], df_sorted_raw["mean_silhouette"], color="blue", marker='o', label="Mean")
-    ax2_raw.plot(df_sorted_raw[label_key], df_sorted_raw["median_silhouette"], color="red", marker='o', label="Median")
-    ax2_raw.plot(df_sorted_raw[label_key], df_sorted_raw["std_silhouette"], color="black", marker='o', label="Std Dev")
-    ax2_raw.set_ylabel("Silhouette Scores", color="black")
-    ax2_raw.tick_params(axis='y', labelcolor="black")
+    try:
+        fig_log.write_html(f"{prefix}_log10.html")
+        fig_log.write_image(f"{prefix}_log10.svg")
+        fig_log.write_image(f"{prefix}_log10.png")
+    except Exception as e:
+        print(f"[WARN] Export log10 failed: {e}")
 
-    lines1, labels1 = ax1_raw.get_legend_handles_labels()
-    lines2, labels2 = ax2_raw.get_legend_handles_labels()
-    ax2_raw.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+    # === Plot 2: raw count + silhouette
+    df_raw = df.sort_values("count", ascending=False).reset_index(drop=True)
+    x = df_raw[label_key]
 
-    plt.title("Cluster Summary: Raw Cell Count and Silhouette Metrics")
-    plt.tight_layout()
-    fig_raw.savefig(f"{prefix}_raw.png")
-    plt.close(fig_raw)
+    fig_raw = make_subplots(specs=[[{"secondary_y": True}]])
 
-    print(f"[DONE] Saved: {prefix}_log10.png and {prefix}_raw.png")
+    fig_raw.add_trace(go.Bar(
+        x=x, y=df_raw["count"],
+        name="Cell Count",
+        marker_color="gray"
+    ), secondary_y=False)
+
+    fig_raw.add_trace(go.Scatter(
+        x=x, y=df_raw["mean_silhouette"],
+        name="Mean", mode="lines+markers", line=dict(color="blue")
+    ), secondary_y=True)
+
+    fig_raw.add_trace(go.Scatter(
+        x=x, y=df_raw["median_silhouette"],
+        name="Median", mode="lines+markers", line=dict(color="red")
+    ), secondary_y=True)
+
+    fig_raw.update_layout(
+        title="Cluster Cell Count (raw) vs Silhouette",
+        width=1200, height=600,
+        margin=dict(l=60, r=60, t=80, b=60),
+        xaxis_tickangle=90
+    )
+
+    fig_raw.update_yaxes(title_text="Cell Count", secondary_y=False)
+    fig_raw.update_yaxes(title_text="Silhouette Score", secondary_y=True)
+
+    try:
+        fig_raw.write_html(f"{prefix}_raw.html")
+        fig_raw.write_image(f"{prefix}_raw.svg")
+        fig_raw.write_image(f"{prefix}_raw.png")
+    except Exception as e:
+        print(f"[WARN] Export raw failed: {e}")
 
