@@ -14,13 +14,12 @@ Contents
    :caption: Topics
 
    process
-   modules
 
 Additional Resources
 --------------------
 
-* `GitHub Repository <https://github.com/NIH-NLM/scsilhouette>`_
-* `Project Website <https://nih-nlm.github.io/scsilhouette>`_
+* `GitHub Repository <https://github.com/NIH-NLM/scsilhouette-nf>`_
+* `Project Website <https://nih-nlm.github.io/scsilhouette-nf>`_
 
 Indices and tables
 ==================
