@@ -27,7 +27,7 @@ RUN git clone https://github.com/NIH-NLM/scsilhouette.git && \
     pip install -e .
 
 # Set environment path to pick up CLI
-ENV PATH=/opt/conda/envs/base/bin:$PATH
+ENV PATH="/opt/conda/bin:$PATH"
 
 # Simple direct entrypoint
 ENTRYPOINT [""]
