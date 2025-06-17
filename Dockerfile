@@ -14,7 +14,6 @@ RUN micromamba install -y -n base -f /tmp/env.yaml && \
 # Enable conda activation
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 RUN echo "micromamba activate base" >> ~/.bashrc
-ENV PATH=/opt/conda/envs/base/bin:$PATH
 
 # Temporarily become root to install OS packages
 USER root
@@ -22,13 +21,14 @@ RUN apt-get update && \
     apt-get install -y git procps && \
     apt-get clean -y
 
-# Switch back to default user
-USER $MAMBA_USER
-
 # Clone repo and install the package
 RUN git clone https://github.com/NIH-NLM/scsilhouette.git && \
     cd scsilhouette && \
     pip install -e .
 
-ENTRYPOINT ["micromamba", "run", "-n", "base", "--", "scsilhouette"]
+# Set environment path to pick up CLI
+ENV PATH=/opt/conda/envs/base/bin:$PATH
+
+# Simple direct entrypoint
+ENTRYPOINT [""]
 
