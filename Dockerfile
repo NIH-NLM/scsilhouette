@@ -30,5 +30,5 @@ RUN git clone https://github.com/NIH-NLM/scsilhouette.git && \
     cd scsilhouette && \
     pip install -e .
 
-ENTRYPOINT [""]
+ENTRYPOINT ["micromamba", "run", "-n", "base", "--", "scsilhouette"]
 
