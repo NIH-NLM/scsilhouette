@@ -217,6 +217,7 @@ def plot_dotplot(
         adata,
         basis=embedding_key.replace("X_", ""),
         color=label_key,
+        show=False,
         save=f"dotplot_{suffix}_{embedding_key}.png",
     )
 

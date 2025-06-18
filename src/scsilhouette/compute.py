@@ -10,6 +10,10 @@ def run_silhouette(
     h5ad_path: Path,
     label_key: str,
     embedding_key: str = None,
+    organism: str = None,
+    disease: str = None,
+    tissue: str = None,
+    cell_count: int = None,
     use_binary_genes: bool = False,
     gene_list_path: Path = None,
     mapping_output_path: Path = None,
@@ -59,16 +63,8 @@ def run_silhouette(
     scores = silhouette_samples(adata_use, labels, metric=metric)
     adata.obs["silhouette_score"] = scores
 
-    # Save outputs
-#    output_dir = Path(output_dir)
-
-#    if not os.path.exists(output_dir):
-#        raise FileNotFoundError(
-#            f"[FAIL] Output directory '{output_dir}' does not exist. Please create it or use Nextflow publishDir.")
-
     if save_scores:
-#        scores_path = output_dir / f"silhouette_scores_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        scores_path = f"silhouette_scores_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
+        scores_path = f"silhouette_scores_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
         adata.obs[[label_key, "silhouette_score"]].to_csv(scores_path)
         print(f"[PASS] Saved silhouette scores to {scores_path}")
 
@@ -83,19 +79,14 @@ def run_silhouette(
             )
             .reset_index()
         )
-#        summary_path = output_dir / f"cluster_summary_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        summary_path = f"cluster_summary_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
+        summary_path = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
         summary_df.to_csv(summary_path)
         print(f"[PASS] Saved cluster summary to {summary_path}")
 
     if save_annotation:
-#        annotation_path = output_dir / f"annotation__{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        annotation_path = f"annotation__{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        adata.obs.head().to_csv(annotation_path)
+        annotation_path = f"annotation_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
+        adata.obs.to_csv(annotation_path)
         print(f"[PASS] Saved annotation to {annotation_path}")
-
-    if show_annotation:
-        print(adata.obs.head())
 
     return adata
 
