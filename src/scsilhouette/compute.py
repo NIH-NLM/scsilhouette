@@ -85,7 +85,19 @@ def run_silhouette(
 
     if save_annotation:
         annotation_path = f"annotation_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        adata.obs.to_csv(annotation_path)
+        with open(annotation_path, "w") as f:
+            f.write(f"\nLoaded file: {h5ad_path}\n")
+            f.write(f"Shape: {adata.shape} (cells x genes)\n")
+            f.write("Cell Annotations (.obs):\n")
+            f.write(", ".join(adata.obs.columns.tolist()) + "\n")
+            f.write("Gene Annotations (.var):\n")
+            f.write(", ".join(adata.var.columns.tolist()) + "\n")
+            f.write("Unstructured Metadata (.uns):\n")
+            f.write(", ".join(list(adata.uns.keys())) + "\n")
+            f.write("\nExample values from .obs:")
+            for col in adata.obs.columns[:5]:  # limit output
+                f.write(f"{col}: {adata.obs[col].unique()[:5]}\n")
+       
         print(f"[PASS] Saved annotation to {annotation_path}")
 
     return adata

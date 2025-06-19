@@ -4,3 +4,8 @@ docs/build
 data/
 results/
 src/scsilhouette/__pycache__
+results_last/
+annotation*
+cluster_summary*
+silhouette_scores*
+
