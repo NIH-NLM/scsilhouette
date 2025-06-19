@@ -1,5 +1,3 @@
-name: Docker Publish
-
 name: Publish Docker image to GHCR
 
 on:
