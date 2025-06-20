@@ -12,7 +12,6 @@ from plotly.io import write_html, write_image
 import plotly.io as pio
 from scipy.stats import pearsonr
 
-
 def plot_silhouette_summary(
     silhouette_score_path: str,
     label: str,
@@ -41,46 +40,46 @@ def plot_silhouette_summary(
         has_fscore = True
 
     grouped = grouped.sort_values(by=sort_by, ascending=False)
-    x = grouped[label].tolist()
+    sorted_labels = grouped[label].tolist()
 
+    # Create base figure
     fig = go.Figure()
 
-    # IQR error bar
-    fig.add_trace(go.Bar(
-        x=x,
-        y=grouped["median"],
-        name="Median Silhouette",
-        marker_color="skyblue",
-        error_y=dict(
-            type='data',
-            symmetric=False,
-            array=grouped["q3"] - grouped["median"],
-            arrayminus=grouped["median"] - grouped["q1"],
-            thickness=1.5,
-            color='black'
-        )
-    ))
+    # Add box plots (uniform color)
+    for cat in sorted_labels:
+        cat_data = df[df[label] == cat][silhouette_score_col]
+        fig.add_trace(go.Box(
+            y=cat_data,
+            name=cat,
+            boxpoints=False,
+            whiskerwidth=0.6,
+            marker=dict(size=3, color='grey'),
+            line=dict(width=1, color='black'),
+            fillcolor='lightgrey',
+            showlegend=False
+        ))
 
-    # Mean dots
+    # Add red dots for mean
     fig.add_trace(go.Scatter(
-        x=x,
+        x=sorted_labels,
         y=grouped["mean"],
         mode="markers",
         name="Mean",
         marker=dict(color="red", size=8, symbol="circle")
     ))
 
-    # Optional F-score bars
-    if has_fscore:
-        fig.add_trace(go.Bar(
-            x=x,
-            y=grouped["f_score"],
-            name="F-score",
-            marker_color="orange",
-            opacity=0.6
-        ))
+    # Update layout
+    fig.update_layout(
+        yaxis=dict(title="Silhouette Score", range=[-1, 1]),
+        xaxis=dict(title=label, tickangle=45),
+        title=f"Silhouette Scores by {label}",
+        legend=dict(x=1.01, y=1),
+        margin=dict(l=60, r=60, t=80, b=60),
+        height=600,
+        width=1200
+    )
 
-    # Global + cluster stats
+    # Add stats annotation
     global_mean = df[silhouette_score_col].mean()
     global_median = df[silhouette_score_col].median()
     global_std = df[silhouette_score_col].std()
@@ -107,17 +106,6 @@ def plot_silhouette_summary(
         font=dict(size=12)
     )
 
-    fig.update_layout(
-        title=f"Silhouette Summary per {label}",
-        xaxis=dict(title=label, tickangle=45),
-        yaxis=dict(title="Silhouette Score"),
-        barmode="group",
-        legend=dict(x=1.01, y=1),
-        margin=dict(l=60, r=60, t=80, b=60),
-        height=600,
-        width=1200
-    )
-
     # Output files
     outbase = f"{suffix}_silhouette_summary"
     html_path = f"{outbase}.html"
@@ -131,6 +119,7 @@ def plot_silhouette_summary(
     print(f"Saved interactive HTML to {html_path}")
     print(f"Saved static SVG to {svg_path}")
     print(f"Saved PNG image to {png_path}")
+    
 
 def plot_correlation_summary(
     cluster_summary_path: str,
