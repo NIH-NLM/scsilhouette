@@ -52,7 +52,7 @@ def plot_silhouette_summary(
             y=cat_data,
             name=cat,
             boxpoints=False,
-            whiskerwidth=0.6,
+            whiskerwidth=0.8,
             marker=dict(size=3, color='grey'),
             line=dict(width=1, color='black'),
             fillcolor='lightgrey',
@@ -60,13 +60,13 @@ def plot_silhouette_summary(
         ))
 
     # Add red dots for mean
-    fig.add_trace(go.Scatter(
-        x=sorted_labels,
-        y=grouped["mean"],
-        mode="markers",
-        name="Mean",
-        marker=dict(color="red", size=8, symbol="circle")
-    ))
+#    fig.add_trace(go.Scatter(
+#        x=sorted_labels,
+#        y=grouped["mean"],
+#        mode="markers",
+#        name="Mean",
+#        marker=dict(color="red", size=8, symbol="circle")
+#    ))
 
     # Update layout
     fig.update_layout(
