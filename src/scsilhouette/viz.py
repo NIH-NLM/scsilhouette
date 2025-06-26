@@ -14,8 +14,8 @@ from scipy.stats import pearsonr
 
 def plot_silhouette_summary(
     silhouette_score_path: str,
-    label: str,
     silhouette_score_col: str,
+    label_key: str,
     fscore_path: Optional[str] = None,
     mapping_path: Optional[str] = None,
     sort_by: str = "median",
@@ -23,31 +23,38 @@ def plot_silhouette_summary(
     df = pd.read_csv(silhouette_score_path)
     prefix = Path(silhouette_score_path).stem
     suffix = prefix
+    
+    # Output files
+    outbase = f"{suffix}_silhouette_summary"
+    html_path = f"{outbase}.html"
+    svg_path = f"{outbase}.svg"
+    png_path = f"{outbase}.png"
 
-    grouped = df.groupby(label)[silhouette_score_col].agg([
+
+    grouped = df.groupby(label_key)[silhouette_score_col].agg([
         "mean", "std", "median", "count", "min", "max",
         lambda x: np.percentile(x, 25), lambda x: np.percentile(x, 75)
     ]).reset_index()
-    grouped.columns = [label, "mean", "std", "median", "count", "min", "max", "q1", "q3"]
+    grouped.columns = [label_key, "mean", "std", "median", "count", "min", "max", "q1", "q3"]
 
     has_fscore = False
     if fscore_path and mapping_path:
         fscore_df = pd.read_csv(fscore_path)
         mapping = pd.read_csv(mapping_path)
-        mapping.columns = [label, "clusterName"]
+        mapping.columns = [label_key, "clusterName"]
         fscore_df = fscore_df.merge(mapping, on="clusterName", how="inner")
-        grouped = grouped.merge(fscore_df[[label, "f_score"]], on=label, how="inner")
+        grouped = grouped.merge(fscore_df[[label_key, "f_score"]], on=label_key, how="inner")
         has_fscore = True
 
     grouped = grouped.sort_values(by=sort_by, ascending=False)
-    sorted_labels = grouped[label].tolist()
+    sorted_labels = grouped[label_key].tolist()
 
     # Create base figure
     fig = go.Figure()
 
     # Add box plots (uniform color)
     for cat in sorted_labels:
-        cat_data = df[df[label] == cat][silhouette_score_col]
+        cat_data = df[df[label_key] == cat][silhouette_score_col]
         fig.add_trace(go.Box(
             y=cat_data,
             name=cat,
@@ -71,8 +78,8 @@ def plot_silhouette_summary(
     # Update layout
     fig.update_layout(
         yaxis=dict(title="Silhouette Score", range=[-1, 1]),
-        xaxis=dict(title=label, tickangle=45),
-        title=f"Silhouette Scores by {label}",
+        xaxis=dict(title=label_key, tickangle=45),
+        title=f"{outbase}",
         legend=dict(x=1.01, y=1),
         margin=dict(l=60, r=60, t=80, b=60),
         height=600,
@@ -105,12 +112,6 @@ def plot_silhouette_summary(
         opacity=0.9,
         font=dict(size=12)
     )
-
-    # Output files
-    outbase = f"{suffix}_silhouette_summary"
-    html_path = f"{outbase}.html"
-    svg_path = f"{outbase}.svg"
-    png_path = f"{outbase}.png"
 
     fig.write_html(html_path)
     pio.write_image(fig, svg_path, format='svg')

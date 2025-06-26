@@ -41,16 +41,16 @@ def compute_silhouette_command(
 @app.command("viz-summary")
 def viz_summary_command(
     silhouette_score_path: Path = typer.Option(...),
-    label: str = typer.Option(...),
     silhouette_score_col: str = typer.Option(...),
+    label_key: str = typer.Option(...),
     fscore_path: Optional[Path] = typer.Option(None),
     mapping_path: Optional[Path] = typer.Option(None),
     sort_by: str = typer.Option("median", help="Sort by mean|median|std")
 ):
     viz.plot_silhouette_summary(
         silhouette_score_path=str(silhouette_score_path),
-        label=label,
         silhouette_score_col=silhouette_score_col,
+        label_key=label_key,
         fscore_path=str(fscore_path) if fscore_path else None,
         mapping_path=str(mapping_path) if mapping_path else None,
         sort_by=sort_by,
