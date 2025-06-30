@@ -22,8 +22,7 @@ RUN apt-get update && \
     apt-get clean -y
 
 # Clone repo and install the package
-RUN bash -c "micromamba activate base && plotly_get_chrome" && \
-    git clone https://github.com/NIH-NLM/scsilhouette.git && \
+RUN git clone https://github.com/NIH-NLM/scsilhouette.git && \
     cd scsilhouette && \
     pip install -e .
 
