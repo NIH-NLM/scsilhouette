@@ -27,8 +27,8 @@ def plot_silhouette_summary(
     # Output files
     outbase = f"{suffix}_silhouette_summary"
     html_path = f"{outbase}.html"
-    svg_path = f"{outbase}.svg"
-    png_path = f"{outbase}.png"
+#    svg_path = f"{outbase}.svg"
+#    png_path = f"{outbase}.png"
 
 
     grouped = df.groupby(label_key)[silhouette_score_col].agg([
@@ -114,12 +114,12 @@ def plot_silhouette_summary(
     )
 
     fig.write_html(html_path)
-    pio.write_image(fig, svg_path, format='svg')
-    pio.write_image(fig, png_path, format='png')
+#    pio.write_image(fig, svg_path, format='svg')
+#    pio.write_image(fig, png_path, format='png')
 
     print(f"Saved interactive HTML to {html_path}")
-    print(f"Saved static SVG to {svg_path}")
-    print(f"Saved PNG image to {png_path}")
+#    print(f"Saved static SVG to {svg_path}")
+#    print(f"Saved PNG image to {png_path}")
     
 
 def plot_correlation_summary(
@@ -178,8 +178,8 @@ def plot_correlation_summary(
         output_prefix = f"{prefix}_{x_metric}_vs_{y_metric}"
         try:
             fig.write_html(f"{output_prefix}.html")
-            fig.write_image(f"{output_prefix}.svg")
-            fig.write_image(f"{output_prefix}.png")
+#            fig.write_image(f"{output_prefix}.svg")
+#            fig.write_image(f"{output_prefix}.png")
         except Exception as e:
             print(f"[WARN] Export failed: {e}")
 
@@ -255,8 +255,8 @@ def plot_distribution(
 
     try:
         fig_log.write_html(f"{prefix}_log10.html")
-        fig_log.write_image(f"{prefix}_log10.svg")
-        fig_log.write_image(f"{prefix}_log10.png")
+#        fig_log.write_image(f"{prefix}_log10.svg")
+#        fig_log.write_image(f"{prefix}_log10.png")
     except Exception as e:
         print(f"[WARN] Export log10 failed: {e}")
 
@@ -294,8 +294,8 @@ def plot_distribution(
 
     try:
         fig_raw.write_html(f"{prefix}_raw.html")
-        fig_raw.write_image(f"{prefix}_raw.svg")
-        fig_raw.write_image(f"{prefix}_raw.png")
+#        fig_raw.write_image(f"{prefix}_raw.svg")
+#        fig_raw.write_image(f"{prefix}_raw.png")
     except Exception as e:
         print(f"[WARN] Export raw failed: {e}")
 
