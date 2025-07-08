@@ -1,8 +1,7 @@
 # scsilhouette
 
-[![Docker](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-publish.yml)
-![Docs Status](https://img.shields.io/badge/docs-online-success)
-[![Docker Image CI](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-image.yml/badge.svg)](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-image.yml)
+[![Build and Publish Docker image to GHCR](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-publish.yml)
+
 
 Silhouette scoring and F-score correlation for single-cell RNA-seq cluster validation.
 
