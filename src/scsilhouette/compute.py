@@ -19,6 +19,7 @@ def run_silhouette(
     mapping_output_path: Path = None,
     metric: str = "euclidean",
     pca_components: int = None,
+    filter_normal: bool = True,
     save_scores: bool = False,
     save_cluster_summary: bool = False,
     save_annotation: bool = False,
@@ -59,7 +60,14 @@ def run_silhouette(
         adata_use = pca.fit_transform(adata_use)
 
     # Compute silhouette scores
-    labels = adata.obs[label_key]
+#    labels = adata.obs[label_key]
+#    scores = silhouette_samples(adata_use, labels, metric=metric)
+#    adata.obs["silhouette_score"] = scores
+#    labels = adata.obs[label_key]
+    if filter_normal and "disease" in adata.obs.columns:
+        normal_mask = adata.obs["disease"] == "normal"
+        adata_use = adata_use[normal_mask]
+        labels = labels[normal_mask]
     scores = silhouette_samples(adata_use, labels, metric=metric)
     adata.obs["silhouette_score"] = scores
 
