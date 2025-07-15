@@ -65,7 +65,7 @@ def run_silhouette(
 
     # Get the labels first
     labels = adata.obs[label_key].copy()
-
+    
     # Apply filter if needed
     if filter_normal and "disease" in adata.obs.columns:
         normal_mask = adata.obs["disease"] == "normal"
@@ -75,7 +75,16 @@ def run_silhouette(
         adata_use = adata.obsm[embedding_key]
 
     scores = silhouette_samples(adata_use, labels, metric=metric)
-    adata.obs["silhouette_score"] = scores
+
+    # Step 1: Init full column with NaNs
+    adata.obs["silhouette_score"] = np.nan
+
+    # Step 2: Assign only where used
+    if filter_normal:
+        adata.obs.loc[normal_mask, "silhouette_score"] = scores
+    else:
+        adata.obs["silhouette_score"] = scores
+
 
     if save_scores:
         scores_path = f"silhouette_scores_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
