@@ -59,15 +59,21 @@ def run_silhouette(
         pca = PCA(n_components=pca_components)
         adata_use = pca.fit_transform(adata_use)
 
-    # Compute silhouette scores
-#    labels = adata.obs[label_key]
-#    scores = silhouette_samples(adata_use, labels, metric=metric)
-#    adata.obs["silhouette_score"] = scores
-#    labels = adata.obs[label_key]
+
+    # Interpret flag string from CLI
+    filter_normal = str(filter_normal).lower() == "true"
+
+    # Get the labels first
+    labels = adata.obs[label_key].copy()
+
+    # Apply filter if needed
     if filter_normal and "disease" in adata.obs.columns:
         normal_mask = adata.obs["disease"] == "normal"
-        adata_use = adata_use[normal_mask]
+        adata_use = adata.obsm[embedding_key][normal_mask]
         labels = labels[normal_mask]
+    else:
+        adata_use = adata.obsm[embedding_key]
+
     scores = silhouette_samples(adata_use, labels, metric=metric)
     adata.obs["silhouette_score"] = scores
 
