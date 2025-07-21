@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import pandas as pd
 import scanpy as sc
+import json
 from .utils import map_gene_symbols_to_ensembl
 
 def run_silhouette(
@@ -87,12 +88,15 @@ def run_silhouette(
 
 
     if save_scores:
-        scores_path = f"silhouette_scores_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        adata.obs[[label_key, "silhouette_score"]].to_csv(scores_path)
-        print(f"[PASS] Saved silhouette scores to {scores_path}")
+        silhouette_scores_csv = f"silhouette_scores_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
+        silhouette_scores_json = f"silhouette_scores_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.json"
+        adata.obs[[label_key, "silhouette_score"]].to_csv(silhouette_scores_csv)
+        adata.obs[[label_key, "silhouette_score"]].to_json(silhouette_scores_json)
+        print(f"[PASS] Saved silhouette scores to {silhouette_scores_csv}")
+        print(f"[PASS] Saved silhouette scores to {silhouette_scores_json}")
 
     if save_cluster_summary:
-        summary_df = (
+        cluster_summary_df = (
             adata.obs.groupby(label_key)
             .agg(
                 mean_silhouette=("silhouette_score", "mean"),
@@ -102,26 +106,28 @@ def run_silhouette(
             )
             .reset_index()
         )
-        summary_path = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        summary_df.to_csv(summary_path)
-        print(f"[PASS] Saved cluster summary to {summary_path}")
+        cluster_summary_csv = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
+        cluster_summary_json = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.json"
+        summary_df.to_csv(cluster_summary_csv)
+        summary_df.to_json(cluster_summary_json)
+        print(f"[PASS] Saved cluster summary to {cluster_summary_csv}")
+        print(f"[PASS] Saved cluster summary to {cluster_summary_json}")
 
+    # Dataset-level summary statistics added to adata
+    # note that the n_clusters reports the n_normal clusters if filter_normal is true
+    dataset_stats = {
+        "median_of_medians": cluster_summary['median'].median(),
+        "mean_of_means"    : cluster_summary['mean'].mean(),
+        "n_cells"          : int(adata.n_obs),
+        "n_clusters"       : int(len(set(labels))),
+        "filter_normal"    : filter_normal
+    }
+    adata.obs["dataset_statistics"] = dataset_stats
+    
     if save_annotation:
-        annotation_path = f"annotation_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        with open(annotation_path, "w") as f:
-            f.write(f"\nLoaded file: {h5ad_path}\n")
-            f.write(f"Shape: {adata.shape} (cells x genes)\n")
-            f.write("Cell Annotations (.obs):\n")
-            f.write(", ".join(adata.obs.columns.tolist()) + "\n")
-            f.write("Gene Annotations (.var):\n")
-            f.write(", ".join(adata.var.columns.tolist()) + "\n")
-            f.write("Unstructured Metadata (.uns):\n")
-            f.write(", ".join(list(adata.uns.keys())) + "\n")
-            f.write("\nExample values from .obs:")
-            for col in adata.obs.columns[:5]:  # limit output
-                f.write(f"{col}: {adata.obs[col].unique()[:5]}\n")
-       
-        print(f"[PASS] Saved annotation to {annotation_path}")
+        annotation_json = f"annotation_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.json"
+        adata.obs.to_json(annotation_json)
+        print(f"[PASS] Saved annotation to {annotation_json}")
 
     return adata
 
