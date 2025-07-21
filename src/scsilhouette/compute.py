@@ -108,8 +108,8 @@ def run_silhouette(
         )
         cluster_summary_csv = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
         cluster_summary_json = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.json"
-        summary_df.to_csv(cluster_summary_csv)
-        summary_df.to_json(cluster_summary_json)
+        cluster_summary_csv.to_csv(cluster_summary_csv)
+        cluster_summary.to_json(cluster_summary_json)
         print(f"[PASS] Saved cluster summary to {cluster_summary_csv}")
         print(f"[PASS] Saved cluster summary to {cluster_summary_json}")
 
