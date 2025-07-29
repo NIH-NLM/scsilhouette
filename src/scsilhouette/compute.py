@@ -108,26 +108,34 @@ def run_silhouette(
         )
         cluster_summary_csv = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
         cluster_summary_json = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.json"
-        cluster_summary_csv.to_csv(cluster_summary_csv)
-        cluster_summary.to_json(cluster_summary_json)
+        cluster_summary_df.to_csv(cluster_summary_csv)
+        cluster_summary_df.to_json(cluster_summary_json)
         print(f"[PASS] Saved cluster summary to {cluster_summary_csv}")
         print(f"[PASS] Saved cluster summary to {cluster_summary_json}")
-
-    # Dataset-level summary statistics added to adata
-    # note that the n_clusters reports the n_normal clusters if filter_normal is true
-    dataset_stats = {
-        "median_of_medians": cluster_summary['median'].median(),
-        "mean_of_means"    : cluster_summary['mean'].mean(),
-        "n_cells"          : int(adata.n_obs),
-        "n_clusters"       : int(len(set(labels))),
-        "filter_normal"    : filter_normal
-    }
-    adata.obs["dataset_statistics"] = dataset_stats
     
+    # Assume previous context where adata and other variables are defined
     if save_annotation:
         annotation_json = f"annotation_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.json"
-        adata.obs.to_json(annotation_json)
-        print(f"[PASS] Saved annotation to {annotation_json}")
+        annotation_output = {
+            "available_obs_keys": list(adata.obs.columns),
+            "available_obsm_keys": list(adata.obsm.keys()),
+            "label_key": label_key,
+            "embedding_key": embedding_key,
+            "dataset_summary": {
+                "median_of_medians": cluster_summary_df['median_silhouette'].median(),
+                "median_of_means": cluster_summary_df['mean_silhouette'].median(),
+                "median_of_stds": cluster_summary_df['std_silhouette'].median(),
+                "n_cells": int(adata.n_obs),
+                "n_clusters": int(cluster_summary_df.shape[0]),
+                "organism": organism,
+                "tissue": tissue,
+                "disease": disease,
+                "filter_normal": filter_normal
+            }
+        }
+        with open(annotation_json, "w") as f:
+            json.dump(annotation_output, f, indent=2)
+            print(f"[PASS] Saved annotation metadata to {annotation_json}")
 
     return adata
 
