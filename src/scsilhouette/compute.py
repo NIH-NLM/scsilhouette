@@ -80,11 +80,17 @@ def run_silhouette(
     # Get the labels first
     labels = adata.obs[label_key].copy()
 
-    # Apply filter if needed
+    # Apply filter normal
     if filter_normal and "disease" in adata.obs.columns:
         normal_mask = adata.obs["disease"] == "normal"
         adata = adata[normal_mask].copy()
         labels = labels[normal_mask]
+
+    # Apply filter tissue
+    #if "tissue" in adata.obs.columns:
+    #    tissue_mask = adata.obs["tissue"] == str(tissue)
+    #    adata = adata[tissue_mask].copy()
+    #    labels = labels[tissue_mask]
 
     # Always get embedding AFTER filtering
     adata_use = adata.obsm[embedding_key]
