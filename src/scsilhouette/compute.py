@@ -31,11 +31,24 @@ def run_silhouette(
     import numpy as np
 
     adata = sc.read(h5ad_path)
-    prefix = Path(h5ad_path).stem
+    
+    stem = Path(h5ad_path).stem
+    print(f"[stem] is {stem}")
+
+    # file output aligned with NSForest output names
+    parts = stem.split("_")
+    if len(parts) >= 3:
+        tissue_str = tissue.replace(" ", "-")
+        author = parts[1]
+        year = parts[2]
+    else:
+        author = "unknown"
+        year = "0000"
+
+    prefix = f"{stem}"
 
     print(f" will save output with {prefix}")
     print(f"[PASS] Loaded AnnData with {adata.shape}")
-
     # Handle gene subsetting if binary genes used
     if use_binary_genes and gene_list_path is not None:
         genes_df = pd.read_csv(gene_list_path)
@@ -66,14 +79,23 @@ def run_silhouette(
 
     # Get the labels first
     labels = adata.obs[label_key].copy()
-    
+
     # Apply filter if needed
     if filter_normal and "disease" in adata.obs.columns:
         normal_mask = adata.obs["disease"] == "normal"
-        adata_use = adata.obsm[embedding_key][normal_mask]
+        adata = adata[normal_mask].copy()
         labels = labels[normal_mask]
-    else:
-        adata_use = adata.obsm[embedding_key]
+
+    # Always get embedding AFTER filtering
+    adata_use = adata.obsm[embedding_key]
+
+    # Drop any rows with NaNs in embedding
+    if np.isnan(adata_use).any():
+        nan_mask = ~np.isnan(adata_use).any(axis=1)
+        adata = adata[nan_mask].copy()
+        adata_use = adata_use[nan_mask]
+        labels = labels[nan_mask]
+        print(f"[WARN] Dropped {np.sum(~nan_mask)} cells with NaNs in '{embedding_key}'")
 
     scores = silhouette_samples(adata_use, labels, metric=metric)
 
@@ -88,8 +110,8 @@ def run_silhouette(
 
 
     if save_scores:
-        silhouette_scores_csv = f"silhouette_scores_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        silhouette_scores_json = f"silhouette_scores_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.json"
+        silhouette_scores_csv = f"{prefix}_silhouette_scores.csv"
+        silhouette_scores_json = f"{prefix}_silhouette_scores.json"
         adata.obs[[label_key, "silhouette_score"]].to_csv(silhouette_scores_csv)
         adata.obs[[label_key, "silhouette_score"]].to_json(silhouette_scores_json)
         print(f"[PASS] Saved silhouette scores to {silhouette_scores_csv}")
@@ -106,8 +128,8 @@ def run_silhouette(
             )
             .reset_index()
         )
-        cluster_summary_csv = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.csv"
-        cluster_summary_json = f"cluster_summary_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.json"
+        cluster_summary_csv = f"{prefix}_cluster_summary.csv"
+        cluster_summary_json = f"{prefix}_cluster_summary.json"
         cluster_summary_df.to_csv(cluster_summary_csv)
         cluster_summary_df.to_json(cluster_summary_json)
         print(f"[PASS] Saved cluster summary to {cluster_summary_csv}")
@@ -115,7 +137,7 @@ def run_silhouette(
     
     # Assume previous context where adata and other variables are defined
     if save_annotation:
-        annotation_json = f"annotation_{organism}_{disease}_{tissue}_{prefix}_{label_key}_{embedding_key}_{metric}.json"
+        annotation_json = f"{prefix}_annotation.json"
         annotation_output = {
             "available_obs_keys": list(adata.obs.columns),
             "available_obsm_keys": list(adata.obsm.keys()),
