@@ -1,16 +1,4 @@
-# src/scsilhouette/viz.py (Plotly: auto-export to HTML, SVG, PNG for Nextflow)
-import os
-from pathlib import Path
-import scanpy as sc
 from typing import Optional, List
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import plotly.express as px
-from plotly.io import write_html, write_image
-import plotly.io as pio
-from scipy.stats import pearsonr
 
 def plot_silhouette_summary(
     silhouette_score_path: str,
@@ -20,6 +8,20 @@ def plot_silhouette_summary(
     mapping_path: Optional[str] = None,
     sort_by: str = "median",
 ):
+    import os
+    from pathlib import Path
+    import scanpy as sc
+    import pandas as pd
+    import numpy as np
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    import plotly.express as px
+    from plotly.io import write_html, write_image
+    import plotly.io as pio
+    from scipy.stats import pearsonr
+    import matplotlib.pyplot as plt
+    from plotly.offline import plot as plotly_offline
+
     df = pd.read_csv(silhouette_score_path)
     prefix = Path(silhouette_score_path).stem
     suffix = prefix
@@ -27,100 +29,87 @@ def plot_silhouette_summary(
     # Output files
     outbase = f"{suffix}_silhouette_summary"
     html_path = f"{outbase}.html"
-#    svg_path = f"{outbase}.svg"
-#    png_path = f"{outbase}.png"
-
+    svg_path = f"{outbase}.svg"
 
     grouped = df.groupby(label_key)[silhouette_score_col].agg([
         "mean", "std", "median", "count", "min", "max",
         lambda x: np.percentile(x, 25), lambda x: np.percentile(x, 75)
     ]).reset_index()
     grouped.columns = [label_key, "mean", "std", "median", "count", "min", "max", "q1", "q3"]
-
+    
     has_fscore = False
-    if fscore_path and mapping_path:
+    if fscore_path:
         fscore_df = pd.read_csv(fscore_path)
-        mapping = pd.read_csv(mapping_path)
-        mapping.columns = [label_key, "clusterName"]
-        fscore_df = fscore_df.merge(mapping, on="clusterName", how="inner")
-        grouped = grouped.merge(fscore_df[[label_key, "f_score"]], on=label_key, how="inner")
+#        mapping = pd.read_csv(mapping_path)
+#        mapping.columns = [label_key, "clusterName"]
+#        fscore_df = fscore_df.merge(mapping, on="clusterName", how="inner")
+        grouped = grouped.merge(fscore_df[[label_key, "f_score"]], on=label_key, how="left")
         has_fscore = True
 
     grouped = grouped.sort_values(by=sort_by, ascending=False)
     sorted_labels = grouped[label_key].tolist()
 
-    # Create base figure
-    fig = go.Figure()
+    x = np.arange(len(grouped))
 
-    # Add box plots (uniform color)
-    for cat in sorted_labels:
-        cat_data = df[df[label_key] == cat][silhouette_score_col]
-        fig.add_trace(go.Box(
-            y=cat_data,
-            name=cat,
-            boxpoints=False,
-            whiskerwidth=0.8,
-            marker=dict(size=3, color='grey'),
-            line=dict(width=1, color='black'),
-            fillcolor='lightgrey',
-            showlegend=False
+    # Static SVG with matplotlib
+    fig, ax = plt.subplots(figsize=(max(14, 0.25 * len(grouped)), 6))
+    ax.bar(x - 0.2, grouped["median"], width=0.4, label="Median Silhouette", color="steelblue")
+
+    if "f_score" in grouped.columns:
+        ax.bar(x + 0.2, grouped["f_score"], width=0.4, label="F-score", color="orange")
+
+    for i, (mean, std, median) in enumerate(zip(grouped["mean"], grouped["std"], grouped["median"])):
+        ax.errorbar(i - 0.2, mean, yerr=std, fmt='o', color='black', capsize=4)
+        ax.scatter(i - 0.2, median, color='red', zorder=5)
+        ax.text(i - 0.25, mean + std + 0.02, f"μ={mean:.2f}", ha="center", fontsize=6)
+        ax.text(i - 0.20, mean + std + 0.06, f"M={median:.2f}", ha="center", fontsize=6)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(grouped[label_key], rotation=90, fontsize=6)
+    ax.set_ylabel("Silhouette / F-score")
+    ax.set_title(f"Silhouette Summary with F-score per {label_key}")
+    ax.legend()
+
+    fig.savefig(f"{prefix}_silhouette_fscore_summary.svg", bbox_inches="tight")
+    plt.close(fig)
+
+    # Interactive HTML with plotly
+    fig_html = go.Figure()
+    fig_html.add_trace(go.Bar(
+        x=grouped[label_key],
+        y=grouped["median"],
+        name="Median Silhouette",
+        marker_color="steelblue"
+    ))
+
+    if "f_score" in grouped.columns:
+        fig_html.add_trace(go.Bar(
+            x=grouped[label_key],
+            y=grouped["f_score"],
+            name="F-score",
+            marker_color="orange"
         ))
 
-    # Add red dots for mean
-#    fig.add_trace(go.Scatter(
-#        x=sorted_labels,
-#        y=grouped["mean"],
-#        mode="markers",
-#        name="Mean",
-#        marker=dict(color="red", size=8, symbol="circle")
-#    ))
+    fig_html.add_trace(go.Scatter(
+        x=grouped[label_key],
+        y=grouped["mean"],
+        mode="markers+lines",
+        name="Mean Silhouette",
+        error_y=dict(type="data", array=grouped["std"]),
+        marker=dict(color="black", size=6)
+    ))
 
-    # Update layout
-    fig.update_layout(
-        yaxis=dict(title="Silhouette Score", range=[-1, 1]),
-        xaxis=dict(title=label_key, tickangle=45),
-        title=f"{outbase}",
-        legend=dict(x=1.01, y=1),
-        margin=dict(l=60, r=60, t=80, b=60),
-        height=600,
-        width=1200
+    fig_html.update_layout(
+        title=f"Silhouette Summary with F-score per {label_key}",
+        xaxis_title=label_key,
+        yaxis_title="Silhouette / F-score",
+        barmode="group"
     )
 
-    # Add stats annotation
-    global_mean = df[silhouette_score_col].mean()
-    global_median = df[silhouette_score_col].median()
-    global_std = df[silhouette_score_col].std()
-    cluster_mean_of_means = grouped["mean"].mean()
-    cluster_median_of_medians = grouped["median"].median()
-    cluster_std_of_stds = grouped["std"].mean()
+    plotly_offline(fig_html, filename=f"{prefix}_silhouette_fscore_summary.html", auto_open=False)
 
-    stats_text = (
-        f"Global:\nMean={global_mean:.2f}, Median={global_median:.2f}, Std={global_std:.2f}\n"
-        f"Cluster:\nMean of Means={cluster_mean_of_means:.2f},\n"
-        f"Median of Medians={cluster_median_of_medians:.2f}, Mean of Stds={cluster_std_of_stds:.2f}"
-    )
+    grouped.to_csv(f"{prefix}_silhouette_fscore_summary.csv", index=False)
 
-    fig.add_annotation(
-        text=stats_text,
-        align="left",
-        showarrow=False,
-        xref="paper", yref="paper",
-        x=0.01, y=0.01,
-        bordercolor="black",
-        borderwidth=1,
-        bgcolor="white",
-        opacity=0.9,
-        font=dict(size=12)
-    )
-
-    fig.write_html(html_path)
-#    pio.write_image(fig, svg_path, format='svg')
-#    pio.write_image(fig, png_path, format='png')
-
-    print(f"Saved interactive HTML to {html_path}")
-#    print(f"Saved static SVG to {svg_path}")
-#    print(f"Saved PNG image to {png_path}")
-    
 
 def plot_correlation_summary(
     cluster_summary_path: str,
