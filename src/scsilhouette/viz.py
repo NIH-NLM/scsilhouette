@@ -40,11 +40,33 @@ def plot_silhouette_summary(
     has_fscore = False
     if fscore_path:
         fscore_df = pd.read_csv(fscore_path)
-#        mapping = pd.read_csv(mapping_path)
-#        mapping.columns = [label_key, "clusterName"]
-#        fscore_df = fscore_df.merge(mapping, on="clusterName", how="inner")
+
+        if label_key not in fscore_df.columns and 'clusterName' in fscore_df.columns:
+            fscore_df = fscore_df.rename(columns={'clusterName': label_key})
+            
         grouped = grouped.merge(fscore_df[[label_key, "f_score"]], on=label_key, how="left")
         has_fscore = True
+
+    # --- BEGIN AUTO-MAPPING PATCH ---
+    if mapping_path:
+        mapping = pd.read_csv(mapping_path)
+        mapping.columns = [label_key, "clusterName"]
+        fscore_df = fscore_df.merge(mapping, on="clusterName", how="inner")
+    else:
+        # Auto-map when clusterName exists but label_key does not
+        if label_key not in fscore_df.columns:
+            if "clusterName" in fscore_df.columns:
+                print(
+                    f"[INFO] Auto-mapping '{label_key}' ← 'clusterName' "
+                    "(no mapping file provided)"
+                )
+                fscore_df[label_key] = fscore_df["clusterName"]
+            else:
+                raise ValueError(
+                    f"[ERROR] Cannot merge fscore file: "
+                    f"'{label_key}' not found and no 'clusterName' column present."
+                )
+    # --- END AUTO-MAPPING PATCH ---
 
     grouped = grouped.sort_values(by=sort_by, ascending=False)
     sorted_labels = grouped[label_key].tolist()
