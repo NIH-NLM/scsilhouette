@@ -22,109 +22,134 @@ def plot_silhouette_summary(
     import matplotlib.pyplot as plt
     from plotly.offline import plot as plotly_offline
 
-    # Load silhouette scores
+    # Load silhouette score data
     df = pd.read_csv(silhouette_score_path)
-    
-    # Calculate summary statistics per label
-    grouped = df.groupby(label_key)[silhouette_score_col].agg(['mean', 'std', 'median', 'count', 'min', 'max'])
-    grouped['q1'] = df.groupby(label_key)[silhouette_score_col].quantile(0.25)
-    grouped['q3'] = df.groupby(label_key)[silhouette_score_col].quantile(0.75)
-    grouped = grouped.reset_index()
+    if silhouette_score_col not in df.columns or label_key not in df.columns:
+        raise ValueError("Missing required columns in silhouette data")
 
-    # Merge in F-score data if provided
+    # Compute summary statistics for silhouette scores
+    grouped = df.groupby(label_key)[silhouette_score_col].agg(
+        ["mean", "std", "median", "count", "min", "max"]
+    ).reset_index()
+    grouped["q1"] = df.groupby(label_key)[silhouette_score_col].quantile(0.25).values
+    grouped["q3"] = df.groupby(label_key)[silhouette_score_col].quantile(0.75).values
+    grouped = grouped.sort_values("median", ascending=False)
+
+    # Add F-score if provided
     has_fscore = False
-    if fscore_path:
+    if fscore_path is not None:
         fscore_df = pd.read_csv(fscore_path)
-        if 'clusterName' in fscore_df.columns and label_key in df.columns:
-            fscore_df = fscore_df.rename(columns={'clusterName': label_key})
-        if label_key in fscore_df.columns:
-            grouped = grouped.merge(fscore_df[[label_key, 'f_score']], on=label_key, how='left')
+        if "clusterName" in fscore_df.columns:
+            fscore_df = fscore_df.rename(columns={"clusterName": label_key})
+        if label_key in fscore_df.columns and "f_score" in fscore_df.columns:
+            grouped = grouped.merge(
+                fscore_df[[label_key, "f_score"]], on=label_key, how="left"
+            )
             has_fscore = True
 
-    # Order by silhouette median descending
-    grouped = grouped.sort_values(by="median", ascending=False)
+    labels = grouped[label_key].tolist()
 
-    # Create the plot
-    fig = go.Figure()
+    # Create box plot traces for silhouette scores
+    box_traces = []
+    for i, label in enumerate(labels):
+        y = df[df[label_key] == label][silhouette_score_col].values
+        box_traces.append(
+            go.Box(
+                y=y,
+                name=label,
+                boxpoints="outliers",
+                marker_color="blue",
+                line_color="blue",
+                showlegend=False,
+                yaxis="y1",
+            )
+        )
 
-    # Silhouette box (whiskers)
-    fig.add_trace(go.Box(
-        y=grouped['median'],
-        x=grouped[label_key],
-        name="Silhouette Score (Median)",
-        boxpoints=False,
-        line=dict(color="blue"),
-        marker_color="blue",
-        q1=grouped["q1"],
-        median=grouped["median"],
-        q3=grouped["q3"],
-        customdata=grouped[label_key],
-        hovertemplate='%{customdata}<br>Median Silhouette: %{y:.3f}<extra></extra>',
-    ))
-
-    # F-score box (if available)
+    # Create bar chart for F-scores
+    bar_trace = None
     if has_fscore:
-        fig.add_trace(go.Box(
-            y=grouped["f_score"],
-            x=grouped[label_key],
-            name="F-score",
-            boxpoints=False,
+        bar_trace = go.Bar(
+            x=labels,
+            y=grouped["f_score"].tolist(),
             marker_color="orange",
-            line=dict(color="orange"),
-            hovertemplate='%{x}<br>F-score: %{y:.3f}<extra></extra>',
-        ))
+            name="F-score",
+            yaxis="y2",
+        )
 
-    # Median of medians
-    silhouette_median_of_medians = grouped["median"].median()
-    fscore_median_of_medians = grouped["f_score"].median() if has_fscore else None
+    # Cell count annotations
+    annotations = []
+    for i, row in enumerate(grouped.itertuples()):
+        annotations.append(
+            dict(
+                x=row.__getattribute__(label_key),
+                y=row.max + 0.05,
+                text=f"n={row.count}",
+                showarrow=False,
+                yanchor="bottom",
+                font=dict(size=10),
+            )
+        )
 
-    summary_text = f"<b>Median of Silhouette Medians: {silhouette_median_of_medians:.2f}"
-    if fscore_median_of_medians is not None:
-        summary_text += f"<br>Median F-score: {fscore_median_of_medians:.2f}"
-    summary_text += "</b>"
+    # Summary stats box (upper right)
+    med_of_meds = round(grouped["median"].median(), 3)
+    med_fscore = round(grouped["f_score"].median(), 3) if has_fscore else None
+    text_lines = [f"Median of medians: {med_of_meds}"]
+    if has_fscore:
+        text_lines.append(f"Median F-score: {med_fscore}")
 
-    fig.add_annotation(
-        xref="paper", yref="paper",
-        x=0.95, y=0.95,
-        text=summary_text,
-        showarrow=False,
-        align="right",
-        bordercolor="black",
-        borderwidth=1
+    annotations.append(
+        dict(
+            xref="paper",
+            yref="paper",
+            x=0.95,
+            y=0.95,
+            text="<br>".join(text_lines),
+            showarrow=False,
+            align="right",
+            font=dict(size=12, color="black"),
+            bordercolor="black",
+            borderwidth=1,
+            bgcolor="white",
+        )
     )
+
+    # Build figure
+    fig = go.Figure()
+    for trace in box_traces:
+        fig.add_trace(trace)
+    if has_fscore:
+        fig.add_trace(bar_trace)
 
     fig.update_layout(
-        title="Silhouette Scores and F-scores by Author Cell Type",
-        xaxis_title="Cell Type",
-        yaxis_title="Score",
-        boxmode='group',
-        showlegend=True,
-        width=1800,
-        height=800
+        xaxis=dict(title=label_key, tickangle=45),
+        yaxis=dict(title="Silhouette Score", side="left"),
+        yaxis2=dict(
+            title="F-score",
+            overlaying="y",
+            side="right",
+            showgrid=False,
+        ),
+        title="Silhouette Summary with F-scores",
+        width=1600,
+        height=800,
+        annotations=annotations,
     )
 
-    # Output filenames
-    prefix = output_prefix or os.path.splitext(silhouette_score_path)[0]
-    svg_path = f"{prefix}_silhouette_fscore_plot.svg"
-    html_path = f"{prefix}_silhouette_fscore_plot.html"
-    stats_path = f"{prefix}_summary_stats.csv"
+    # Generate file prefix
+    prefix = os.path.splitext(os.path.basename(silhouette_score_path))[0]
 
-    try:
-        pio.write_image(fig, svg_path)
-    except Exception as e:
-        print("SVG export failed (kaleido required):", e)
+    # Save outputs
+    svg_path = f"{prefix}_silhouette_fscore_summary.svg"
+    html_path = f"{prefix}_silhouette_fscore_summary.html"
+    csv_path = f"{prefix}_silhouette_fscore_summary.csv"
 
+    fig.write_image(svg_path)
     pio.write_html(fig, html_path)
+    grouped.to_csv(csv_path, index=False)
 
-    # Save summary statistics
-    summary_out = pd.DataFrame({
-        'median_of_silhouette_medians': [silhouette_median_of_medians],
-        'median_of_f_scores': [fscore_median_of_medians if fscore_median_of_medians is not None else '']
-    })
-    summary_out.to_csv(stats_path, index=False)
-
-    print(f"Saved: {html_path}")
-    print(f"Stats: {stats_path}")
+    print(f"Saved SVG: {svg_path}")
+    print(f"Saved HTML: {html_path}")
+    print(f"Saved CSV: {csv_path}")
 
 def plot_correlation_summary(
     cluster_summary_path: str,
