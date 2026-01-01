@@ -167,7 +167,7 @@ def plot_silhouette_summary(
     html_path = f"{prefix}_silhouette_fscore_summary.html"
     csv_path = f"{prefix}_silhouette_fscore_summary.csv"
 
-    fig.write_image(svg_path)
+#    fig.write_image(svg_path)
 
     pio.write_html(
         fig,
