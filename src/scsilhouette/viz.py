@@ -140,12 +140,19 @@ def plot_silhouette_summary(
 
     fig.update_layout(
         barmode="group", # <-- This is what tells Plotly to offset them side-by-side
-        xaxis=dict(title=label_key, tickangle=45),
-        yaxis=dict(title=f"Silhouette Summary with F-scores",side="left"),
+        xaxis=dict(
+            title=label_key,
+            tickangle=45),
+        yaxis=dict(
+            title=f"Silhouette Summary with F-scores",
+            side="left",
+            range=[-1, 1],
+        ),
         yaxis2=dict(
             title="F-score",
             overlaying="y",
             side="right",
+            range=[0,1],
             showgrid=False,
         ),
         title=f"Silhouette Summary with F-scores – {prefix.replace('_silhouette_scores', '')}",
