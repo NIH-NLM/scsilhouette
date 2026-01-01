@@ -33,9 +33,8 @@ def plot_silhouette_summary(
     ).reset_index()
     grouped["q1"] = df.groupby(label_key)[silhouette_score_col].quantile(0.25).values
     grouped["q3"] = df.groupby(label_key)[silhouette_score_col].quantile(0.75).values
-    grouped = grouped.sort_values("median", ascending=False)
 
-    # Add F-score if provided
+    # Move this up here
     has_fscore = False
     if fscore_path is not None:
         fscore_df = pd.read_csv(fscore_path)
@@ -47,6 +46,8 @@ def plot_silhouette_summary(
             )
             has_fscore = True
 
+    # Now sort AFTER merging
+    grouped = grouped.sort_values("median", ascending=False)
     labels = grouped[label_key].tolist()
 
     # Create box plot traces for silhouette scores
@@ -56,30 +57,38 @@ def plot_silhouette_summary(
         box_traces.append(
             go.Box(
                 y=y,
-                name=label,
+                x=[label] * len(y),
+                name="Silhouette Score",
+                legendgroup="silhouette",  # Keeps consistent legend entry
                 boxpoints="outliers",
                 marker_color="blue",
                 line_color="blue",
-                offsetgroup="1", # ensures side-by-side alignment
-                showlegend=True,
-                legendgroup="silhouette",  # Keeps consistent legend entry
+                offsetgroup=label, # ensures side-by-side alignment
+                showlegend=(i == 0),
                 yaxis="y1",
             )
         )
 
-    # Create bar chart for F-scores
-    bar_trace = None
+    # Create bar chart traces for F-scores
+    bar_traces = []
     if has_fscore:
-        bar_trace = go.Bar(
-            x=labels,
-            y=grouped["f_score"].tolist(),
-            marker_color="orange",
-            offsetgroup="2", # Different group = side-by-side
-            name="F-score",
-            showlegend=True,
-            legendgroup="fscore",
-            yaxis="y2",
-        )
+        for i, label in enumerate(labels):
+            fval = grouped.loc[grouped[label_key] == label, "f_score"].values
+            if len(fval) == 1:
+                bar_traces.append(
+                    go.Bar(
+                        x=[label],
+                        y=[fval[0]],
+                        legendgroup="fscore",
+                        showlegend=(i == 0),
+                        marker_color="orange",
+                        offsetgroup=f"{label}_bar",  # differentiate from box
+                        name="F-score",
+                        yaxis="y2",
+                        offset=0.3,  # <-- Pushes it to the right within the group
+                        width=0.4,  # <-- Makes the bar wide enough to be seen
+                    )
+                )
 
     # Cell count annotations
     annotations = []
@@ -123,26 +132,28 @@ def plot_silhouette_summary(
     for trace in box_traces:
         fig.add_trace(trace)
     if has_fscore:
-        fig.add_trace(bar_trace)
+        for bar_trace in bar_traces:
+            fig.add_trace(bar_trace)
+
+    # Generate file prefix
+    prefix = os.path.splitext(os.path.basename(silhouette_score_path))[0]
 
     fig.update_layout(
         barmode="group", # <-- This is what tells Plotly to offset them side-by-side
         xaxis=dict(title=label_key, tickangle=45),
-        yaxis=dict(title="Silhouette Score", side="left"),
+        yaxis=dict(title=f"Silhouette Summary with F-scores",side="left"),
         yaxis2=dict(
             title="F-score",
             overlaying="y",
             side="right",
             showgrid=False,
         ),
-        title="Silhouette Summary with F-scores",
+        title=f"Silhouette Summary with F-scores – {prefix.replace('_silhouette_scores', '')}",
         width=1600,
         height=800,
         annotations=annotations,
     )
 
-    # Generate file prefix
-    prefix = os.path.splitext(os.path.basename(silhouette_score_path))[0]
 
     # Save outputs
     svg_path = f"{prefix}_silhouette_fscore_summary.svg"
@@ -150,7 +161,23 @@ def plot_silhouette_summary(
     csv_path = f"{prefix}_silhouette_fscore_summary.csv"
 
     fig.write_image(svg_path)
-    pio.write_html(fig, html_path)
+
+    pio.write_html(
+        fig,
+        html_path,
+        include_plotlyjs="cdn",
+        config={
+            "toImageButtonOptions": {
+                "format": "svg",
+                "filename": prefix + "_silhouette_fscore_summary",
+                "height": 800,
+                "width": 1600,
+                "scale": 1,
+            },
+            "displaylogo": False,
+        }
+    )
+
     grouped.to_csv(csv_path, index=False)
 
     print(f"Saved SVG: {svg_path}")

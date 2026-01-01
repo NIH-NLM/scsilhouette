@@ -22,8 +22,8 @@ Silhouette scoring and F-score correlation for single-cell RNA-seq cluster valid
 ```bash
 git clone https://github.com/NIH-NLM/scsilhouette
 cd scsilhouette
-conda env create -f environment.yml
-conda activate scsilhouette
+mamba env create -f environment.yml
+mamba activate scsilhouette
 pip install -e .
 ```
 
