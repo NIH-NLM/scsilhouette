@@ -60,7 +60,9 @@ def plot_silhouette_summary(
                 boxpoints="outliers",
                 marker_color="blue",
                 line_color="blue",
-                showlegend=False,
+                offsetgroup="1", # ensures side-by-side alignment
+                showlegend=True,
+                legendgroup="silhouette",  # Keeps consistent legend entry
                 yaxis="y1",
             )
         )
@@ -72,7 +74,10 @@ def plot_silhouette_summary(
             x=labels,
             y=grouped["f_score"].tolist(),
             marker_color="orange",
+            offsetgroup="2", # Different group = side-by-side
             name="F-score",
+            showlegend=True,
+            legendgroup="fscore",
             yaxis="y2",
         )
 
@@ -121,6 +126,7 @@ def plot_silhouette_summary(
         fig.add_trace(bar_trace)
 
     fig.update_layout(
+        barmode="group", # <-- This is what tells Plotly to offset them side-by-side
         xaxis=dict(title=label_key, tickangle=45),
         yaxis=dict(title="Silhouette Score", side="left"),
         yaxis2=dict(
