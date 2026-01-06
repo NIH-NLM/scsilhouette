@@ -1,5 +1,13 @@
 from typing import Optional, List
 
+from typing import Optional
+import os
+from pathlib import Path
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import plotly.io as pio
+
 def plot_silhouette_summary(
     silhouette_score_path: str,
     silhouette_score_col: str,
@@ -8,20 +16,6 @@ def plot_silhouette_summary(
     output_prefix: str = None,
     sort_by: str = "median",
 ):
-    import os
-    from pathlib import Path
-    import scanpy as sc
-    import pandas as pd
-    import numpy as np
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    import plotly.express as px
-    from plotly.io import write_html, write_image
-    import plotly.io as pio
-    from scipy.stats import pearsonr
-    import matplotlib.pyplot as plt
-    from plotly.offline import plot as plotly_offline
-
     # Load silhouette score data
     df = pd.read_csv(silhouette_score_path)
     if silhouette_score_col not in df.columns or label_key not in df.columns:
@@ -34,7 +28,7 @@ def plot_silhouette_summary(
     grouped["q1"] = df.groupby(label_key)[silhouette_score_col].quantile(0.25).values
     grouped["q3"] = df.groupby(label_key)[silhouette_score_col].quantile(0.75).values
 
-    # Move this up here
+    # F-score integration
     has_fscore = False
     if fscore_path is not None:
         fscore_df = pd.read_csv(fscore_path)
@@ -42,11 +36,13 @@ def plot_silhouette_summary(
             fscore_df = fscore_df.rename(columns={"clusterName": label_key})
         if label_key in fscore_df.columns and "f_score" in fscore_df.columns:
             grouped = grouped.merge(
-                fscore_df[[label_key, "f_score"]], on=label_key, how="left"
+                fscore_df[[label_key, "f_score"]],
+                on=label_key,
+                how="left"
             )
             has_fscore = True
 
-    # Now sort AFTER merging
+    # Sort
     grouped = grouped.sort_values("median", ascending=False)
     labels = grouped[label_key].tolist()
 
@@ -59,11 +55,11 @@ def plot_silhouette_summary(
                 y=y,
                 x=[label] * len(y),
                 name="Silhouette Score",
-                legendgroup="silhouette",  # Keeps consistent legend entry
+                legendgroup="silhouette",
                 boxpoints="outliers",
                 marker_color="blue",
                 line_color="blue",
-                offsetgroup=label, # ensures side-by-side alignment
+                offsetgroup=label,
                 showlegend=(i == 0),
                 yaxis="y1",
             )
@@ -82,22 +78,22 @@ def plot_silhouette_summary(
                         legendgroup="fscore",
                         showlegend=(i == 0),
                         marker_color="orange",
-                        offsetgroup=f"{label}_bar",  # differentiate from box
+                        offsetgroup=f"{label}_bar",
                         name="F-score",
                         yaxis="y2",
-                        offset=0.3,  # <-- Pushes it to the right within the group
-                        width=0.4,  # <-- Makes the bar wide enough to be seen
+                        offset=0.3,
+                        width=0.4,
                     )
                 )
 
-    # Cell count annotations
+    # Cell count annotations using iterrows to safely access columns
     annotations = []
-    for i, row in enumerate(grouped.itertuples()):
+    for i, row in grouped.iterrows():
         annotations.append(
             dict(
-                x=row.__getattribute__(label_key),
-                y=row.max + 0.05,
-                text=f"n={row.count}",
+                x=row[label_key],
+                y=row["max"] + 0.05,
+                text=f"n={row['count']}",
                 showarrow=False,
                 yanchor="bottom",
                 font=dict(size=10),
@@ -137,14 +133,13 @@ def plot_silhouette_summary(
 
     # Generate file prefix
     prefix = os.path.splitext(os.path.basename(silhouette_score_path))[0]
-
     fig.update_layout(
-        barmode="group", # <-- This is what tells Plotly to offset them side-by-side
+        barmode="group",
         xaxis=dict(
             title=label_key,
             tickangle=45),
         yaxis=dict(
-            title=f"Silhouette Summary with F-scores",
+            title="Silhouette Summary with F-scores",
             side="left",
             range=[-1, 1],
         ),
@@ -152,7 +147,7 @@ def plot_silhouette_summary(
             title="F-score",
             overlaying="y",
             side="right",
-            range=[0,1],
+            range=[0, 1],
             showgrid=False,
         ),
         title=f"Silhouette Summary with F-scores – {prefix.replace('_silhouette_scores', '')}",
@@ -161,13 +156,13 @@ def plot_silhouette_summary(
         annotations=annotations,
     )
 
-
     # Save outputs
     svg_path = f"{prefix}_silhouette_fscore_summary.svg"
     html_path = f"{prefix}_silhouette_fscore_summary.html"
     csv_path = f"{prefix}_silhouette_fscore_summary.csv"
 
-#    fig.write_image(svg_path)
+    # Optional: save SVG if needed
+    # fig.write_image(svg_path)
 
     pio.write_html(
         fig,
