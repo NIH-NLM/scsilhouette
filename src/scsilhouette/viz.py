@@ -118,6 +118,8 @@ def plot_silhouette_summary(
     # Export CSV summary
     grouped.to_csv(f"{out_prefix}_silhouette_fscore_summary.csv", index=False)
     # Save outputs
+    prefix = os.path.splitext(os.path.basename(silhouette_score_path))[0]
+
 #    svg_path = f"{prefix}_silhouette_fscore_summary.svg"
     html_path = f"{prefix}_silhouette_fscore_summary.html"
     csv_path = f"{prefix}_silhouette_fscore_summary.csv"
