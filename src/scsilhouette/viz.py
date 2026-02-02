@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.graph_objects as go
 import plotly.io as pio
-
+from plotly.subplots import make_subplots
 
 def plot_silhouette_summary(
     silhouette_score_path: str,
@@ -217,8 +217,7 @@ def plot_correlation_summary(
         output_prefix = f"{prefix}_{x_metric}_vs_{y_metric}"
         try:
             fig.write_html(f"{output_prefix}.html")
-#            fig.write_image(f"{output_prefix}.svg")
-#            fig.write_image(f"{output_prefix}.png")
+            fig.write_image(f"{output_prefix}.svg")
         except Exception as e:
             print(f"[WARN] Export failed: {e}")
 
@@ -238,17 +237,41 @@ def plot_dotplot(
     label_key: str,
     embedding_key: str,
 ):
+    import scanpy as sc
+    
     adata = sc.read_h5ad(h5ad_path)
     prefix = Path(h5ad_path).stem
-    suffix = prefix
     
-    sc.pl.embedding(
-        adata,
-        basis=embedding_key.replace("X_", ""),
+    # Get embedding coordinates
+    embedding = adata.obsm[embedding_key]
+    df_plot = pd.DataFrame({
+        'x': embedding[:, 0],
+        'y': embedding[:, 1],
+        label_key: adata.obs[label_key]
+    })
+    
+    # Create plotly scatter
+    fig = px.scatter(
+        df_plot,
+        x='x',
+        y='y',
         color=label_key,
-        show=False,
-        save=f"dotplot_{suffix}_{embedding_key}.png",
+        title=f"{embedding_key} colored by {label_key}",
+        width=1200,
+        height=800
     )
+    
+    fig.update_layout(
+        xaxis_title=f"{embedding_key}_1",
+        yaxis_title=f"{embedding_key}_2"
+    )
+    
+    output_prefix = f"dotplot_{prefix}_{embedding_key}"
+    fig.write_html(f"{output_prefix}.html")
+    fig.write_image(f"{output_prefix}.svg")
+    
+    print(f"Saved HTML: {output_prefix}.html")
+    print(f"Saved SVG: {output_prefix}.svg")
 
 def plot_distribution(
     cluster_summary_path: str,
@@ -294,8 +317,8 @@ def plot_distribution(
 
     try:
         fig_log.write_html(f"{prefix}_log10.html")
-#        fig_log.write_image(f"{prefix}_log10.svg")
-#        fig_log.write_image(f"{prefix}_log10.png")
+        fig_log.write_image(f"{prefix}_log10.svg")
+
     except Exception as e:
         print(f"[WARN] Export log10 failed: {e}")
 
@@ -333,8 +356,8 @@ def plot_distribution(
 
     try:
         fig_raw.write_html(f"{prefix}_raw.html")
-#        fig_raw.write_image(f"{prefix}_raw.svg")
-#        fig_raw.write_image(f"{prefix}_raw.png")
+        fig_raw.write_image(f"{prefix}_raw.svg")
+
     except Exception as e:
         print(f"[WARN] Export raw failed: {e}")
 
