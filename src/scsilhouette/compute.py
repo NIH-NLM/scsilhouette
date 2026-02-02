@@ -5,128 +5,174 @@ from pathlib import Path
 import pandas as pd
 import scanpy as sc
 import json
-from typing import Optional, List
+from typing import Optional
 from .utils import map_gene_symbols_to_ensembl
+from .logging_config import setup_logger
+
+logger = setup_logger()
+
 
 def run_silhouette(
-    h5ad_path: Path,
-    label_key: str,
-    embedding_key: str = None,
-    organism: str = None,
-    disease: str = None,
+    h5ad_path: str,
+    cluster_header: str,
+    embedding_key: str,
+    organ: str,
+    first_author: str,
+    year: str,
+    organism: str = "human",
+    disease: str = "normal",
     tissue: str = None,
-    cell_count: int = None,
+    cell_count: str = "0",
+    output_dir: str = None,
     use_binary_genes: bool = False,
-    gene_list_path: Path = None,
-    mapping_output_path: Path = None,
+    gene_list_path: str = None,
     metric: str = "euclidean",
     pca_components: int = None,
     filter_normal: bool = True,
-    save_scores: bool = False,
-    save_cluster_summary: bool = False,
-    save_annotation: bool = False,
-    show_annotation: bool = False,
+    save_scores: bool = True,
+    save_cluster_summary: bool = True,
+    save_annotation: bool = True,
 ):
+    """
+    Compute silhouette scores for single-cell clusters
+    
+    Parameters
+    ----------
+    h5ad_path : str
+        Path to input h5ad file
+    cluster_header : str
+        Column name for cell type clusters
+    embedding_key : str
+        Embedding key (e.g., X_umap)
+    organ : str
+        Organ/tissue (e.g., kidney)
+    first_author : str
+        First author (e.g., Lake)
+    year : str
+        Publication year (e.g., 2023)
+    organism : str
+        Organism (default: human)
+    disease : str
+        Disease state (default: normal)
+    tissue : str
+        Tissue type
+    cell_count : str
+        Cell count
+    output_dir : str
+        Output directory (auto-generated if None)
+    use_binary_genes : bool
+        Use binary genes from NSForest
+    gene_list_path : str
+        Path to gene list file
+    metric : str
+        Distance metric for silhouette (default: euclidean)
+    pca_components : int
+        Number of PCA components (optional)
+    filter_normal : bool
+        Filter to normal cells only
+    save_scores : bool
+        Save per-cell silhouette scores
+    save_cluster_summary : bool
+        Save cluster summary statistics
+    save_annotation : bool
+        Save annotation metadata
+        
+    Returns
+    -------
+    adata : AnnData
+        Annotated data with silhouette scores
+    """
     from sklearn.metrics import silhouette_samples
     from sklearn.decomposition import PCA
     import numpy as np
 
+    logger.info("Loading data...")
     adata = sc.read(h5ad_path)
     
     stem = Path(h5ad_path).stem
-    print(f"[stem] is {stem}")
+    logger.info(f"Loaded AnnData: {adata.shape[0]} cells x {adata.shape[1]} genes")
 
-    # file output aligned with NSForest output names
-    parts = stem.split("_")
-    if len(parts) >= 3:
-        tissue_str = tissue.replace(" ", "-")
-        author = parts[1]
-        year = parts[2]
-    else:
-        author = "unknown"
-        year = "0000"
-
-    prefix = f"{stem}"
-
-    print(f" will save output with {prefix}")
-    print(f"[PASS] Loaded AnnData with {adata.shape}")
+    # Use provided output_dir or auto-generate matching NSForest pattern
+    if output_dir is None:
+        output_dir = f"outputs_{organ}_{first_author}_{year}"
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # File prefix pattern matches NSForest: outputs_{organ}_{author}_{year}/{cluster_header}_
+    prefix = f"{output_dir}/{cluster_header}"
+    
+    logger.info(f"Output prefix: {prefix}")
+    
     # Handle gene subsetting if binary genes used
     if use_binary_genes and gene_list_path is not None:
         genes_df = pd.read_csv(gene_list_path)
         genes = genes_df.iloc[:, 0].tolist()
-        print(f"[PASS] Loaded {len(genes)} binary genes from {gene_list_path}")
+        logger.info(f"Loaded {len(genes)} binary genes from {gene_list_path}")
 
         if adata.raw is not None and all(g in adata.raw.var_names for g in genes):
             adata_use = adata.raw[:, genes]
-            print("[PASS] Subsetting using raw and binary genes")
+            logger.info("Subsetting using raw and binary genes")
         else:
             adata_use = adata[:, genes]
-            print("[WARN] Subsetting using var and binary genes")
+            logger.info("Subsetting using var and binary genes")
     else:
-        if embedding_key is None:
-            adata_use = adata
-        else:
-            adata_use = adata.obsm[embedding_key]
+        adata_use = adata.obsm[embedding_key] if embedding_key else adata
 
     # PCA optionally
     if pca_components is not None:
-        print(f"[INFO] Running PCA with {pca_components} components")
+        logger.info(f"Running PCA with {pca_components} components")
         pca = PCA(n_components=pca_components)
         adata_use = pca.fit_transform(adata_use)
 
-
-    # Interpret flag string from CLI
+    # Interpret filter_normal flag
     filter_normal = str(filter_normal).lower() == "true"
 
-    # Get the labels first
-    labels = adata.obs[label_key].copy()
+    # Get cluster labels
+    labels = adata.obs[cluster_header].copy()
 
     # Apply filter normal
     if filter_normal and "disease" in adata.obs.columns:
         normal_mask = adata.obs["disease"] == "normal"
+        n_normal = sum(normal_mask)
         adata = adata[normal_mask].copy()
         labels = labels[normal_mask]
+        logger.info(f"Filtered to {n_normal} normal cells")
 
-    # Apply filter tissue
-    #if "tissue" in adata.obs.columns:
-    #    tissue_mask = adata.obs["tissue"] == str(tissue)
-    #    adata = adata[tissue_mask].copy()
-    #    labels = labels[tissue_mask]
-
-    # Always get embedding AFTER filtering
+    # Get embedding AFTER filtering
     adata_use = adata.obsm[embedding_key]
 
-    # Drop any rows with NaNs in embedding
+    # Drop rows with NaNs in embedding
     if np.isnan(adata_use).any():
         nan_mask = ~np.isnan(adata_use).any(axis=1)
+        n_nan = np.sum(~nan_mask)
         adata = adata[nan_mask].copy()
         adata_use = adata_use[nan_mask]
         labels = labels[nan_mask]
-        print(f"[WARN] Dropped {np.sum(~nan_mask)} cells with NaNs in '{embedding_key}'")
+        logger.info(f"Dropped {n_nan} cells with NaNs in '{embedding_key}'")
 
+    logger.info(f"Computing silhouette scores (metric: {metric})...")
     scores = silhouette_samples(adata_use, labels, metric=metric)
 
-    # Step 1: Init full column with NaNs
+    # Initialize silhouette_score column
     adata.obs["silhouette_score"] = np.nan
 
-    # Step 2: Assign only where used
+    # Assign scores
     if filter_normal:
         adata.obs.loc[normal_mask, "silhouette_score"] = scores
     else:
         adata.obs["silhouette_score"] = scores
 
-
     if save_scores:
         silhouette_scores_csv = f"{prefix}_silhouette_scores.csv"
         silhouette_scores_json = f"{prefix}_silhouette_scores.json"
-        adata.obs[[label_key, "silhouette_score"]].to_csv(silhouette_scores_csv)
-        adata.obs[[label_key, "silhouette_score"]].to_json(silhouette_scores_json)
-        print(f"[PASS] Saved silhouette scores to {silhouette_scores_csv}")
-        print(f"[PASS] Saved silhouette scores to {silhouette_scores_json}")
+        adata.obs[[cluster_header, "silhouette_score"]].to_csv(silhouette_scores_csv)
+        adata.obs[[cluster_header, "silhouette_score"]].to_json(silhouette_scores_json)
+        logger.info(f"Saved silhouette scores to {silhouette_scores_csv}")
 
     if save_cluster_summary:
+        logger.info("Computing cluster summary statistics...")
         cluster_summary_df = (
-            adata.obs.groupby(label_key)
+            adata.obs.groupby(cluster_header)
             .agg(
                 mean_silhouette=("silhouette_score", "mean"),
                 std_silhouette=("silhouette_score", "std"),
@@ -137,23 +183,21 @@ def run_silhouette(
         )
         cluster_summary_csv = f"{prefix}_cluster_summary.csv"
         cluster_summary_json = f"{prefix}_cluster_summary.json"
-        cluster_summary_df.to_csv(cluster_summary_csv)
+        cluster_summary_df.to_csv(cluster_summary_csv, index=False)
         cluster_summary_df.to_json(cluster_summary_json)
-        print(f"[PASS] Saved cluster summary to {cluster_summary_csv}")
-        print(f"[PASS] Saved cluster summary to {cluster_summary_json}")
+        logger.info(f"Saved cluster summary to {cluster_summary_csv}")
     
-    # Assume previous context where adata and other variables are defined
     if save_annotation:
         annotation_json = f"{prefix}_annotation.json"
         annotation_output = {
             "available_obs_keys": list(adata.obs.columns),
             "available_obsm_keys": list(adata.obsm.keys()),
-            "label_key": label_key,
+            "cluster_header": cluster_header,
             "embedding_key": embedding_key,
             "dataset_summary": {
-                "median_of_medians": cluster_summary_df['median_silhouette'].median(),
-                "median_of_means": cluster_summary_df['mean_silhouette'].median(),
-                "median_of_stds": cluster_summary_df['std_silhouette'].median(),
+                "median_of_medians": float(cluster_summary_df['median_silhouette'].median()),
+                "median_of_means": float(cluster_summary_df['mean_silhouette'].median()),
+                "median_of_stds": float(cluster_summary_df['std_silhouette'].median()),
                 "n_cells": int(adata.n_obs),
                 "n_clusters": int(cluster_summary_df.shape[0]),
                 "organism": organism,
@@ -164,7 +208,7 @@ def run_silhouette(
         }
         with open(annotation_json, "w") as f:
             json.dump(annotation_output, f, indent=2)
-            print(f"[PASS] Saved annotation metadata to {annotation_json}")
+        logger.info(f"Saved annotation metadata to {annotation_json}")
 
+    logger.info("Silhouette analysis complete!")
     return adata
-

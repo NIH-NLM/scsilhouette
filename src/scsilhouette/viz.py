@@ -5,65 +5,71 @@ from pathlib import Path
 from typing import Optional, List
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 import plotly.graph_objects as go
+import plotly.express as px
 import plotly.io as pio
 from plotly.subplots import make_subplots
+from scipy.stats import pearsonr
+from .logging_config import setup_logger
+
+logger = setup_logger()
+
 
 def plot_silhouette_summary(
     silhouette_score_path: str,
     silhouette_score_col: str,
-    label_key: str,
+    cluster_header: str,
     fscore_path: str = None,
     output_prefix: str = None,
     sort_by: str = "median",
 ):
-
-    # Load silhouette scores
+    """Generate silhouette summary boxplot with optional F-scores"""
+    
+    logger.info("Loading silhouette scores...")
     df = pd.read_csv(silhouette_score_path)
 
-    if silhouette_score_col not in df.columns or label_key not in df.columns:
-        raise ValueError("Missing required columns in silhouette data")
+    if silhouette_score_col not in df.columns or cluster_header not in df.columns:
+        raise ValueError(f"Missing required columns in silhouette data")
 
-    # Compute per‑cluster statistics
+    logger.info("Computing per-cluster statistics...")
     grouped = (
-        df.groupby(label_key)[silhouette_score_col]
+        df.groupby(cluster_header)[silhouette_score_col]
         .agg(["mean", "std", "median", "count"])
         .reset_index()
     )
 
     # Add IQR
-    q1 = df.groupby(label_key)[silhouette_score_col].quantile(0.25)
-    q3 = df.groupby(label_key)[silhouette_score_col].quantile(0.75)
+    q1 = df.groupby(cluster_header)[silhouette_score_col].quantile(0.25)
+    q3 = df.groupby(cluster_header)[silhouette_score_col].quantile(0.75)
     grouped["q1"] = q1.values
     grouped["q3"] = q3.values
 
-    # F‑score integration
+    # F-score integration
     has_fscore = False
     if fscore_path is not None:
+        logger.info(f"Loading F-scores from {fscore_path}...")
         fscore_df = pd.read_csv(fscore_path)
         if "clusterName" in fscore_df.columns:
-            fscore_df = fscore_df.rename(columns={"clusterName": label_key})
+            fscore_df = fscore_df.rename(columns={"clusterName": cluster_header})
 
-        if label_key in fscore_df.columns and "f_score" in fscore_df.columns:
+        if cluster_header in fscore_df.columns and "f_score" in fscore_df.columns:
             grouped = grouped.merge(
-                fscore_df[[label_key, "f_score"]],
-                on=label_key,
+                fscore_df[[cluster_header, "f_score"]],
+                on=cluster_header,
                 how="left",
             )
             has_fscore = True
 
-    # Sort by silhouette median
+    # Sort
     grouped = grouped.sort_values(sort_by, ascending=False)
-    ordered_labels = grouped[label_key].tolist()
+    ordered_labels = grouped[cluster_header].tolist()
 
-    # Build Plotly figure
+    logger.info("Building plotly figure...")
     fig = go.Figure()
 
-    # Silhouette boxplots (median + IQR)
+    # Silhouette boxplots
     for label in ordered_labels:
-        y = df[df[label_key] == label][silhouette_score_col]
+        y = df[df[cluster_header] == label][silhouette_score_col]
         fig.add_trace(
             go.Box(
                 y=y,
@@ -77,11 +83,11 @@ def plot_silhouette_summary(
             )
         )
 
-    # F‑score bars (orange)
+    # F-score bars
     if has_fscore:
         fig.add_trace(
             go.Bar(
-                x=grouped[label_key],
+                x=grouped[cluster_header],
                 y=grouped["f_score"],
                 marker_color="orange",
                 name="F-score",
@@ -95,7 +101,7 @@ def plot_silhouette_summary(
     for _, row in grouped.iterrows():
         annotations.append(
             dict(
-                x=row[label_key],
+                x=row[cluster_header],
                 y=row["q3"] + 0.05,
                 text=f"n={int(row['count'])}",
                 showarrow=False,
@@ -104,7 +110,6 @@ def plot_silhouette_summary(
             )
         )
 
-    # File prefix
     prefix = (
         output_prefix
         if output_prefix is not None
@@ -114,7 +119,7 @@ def plot_silhouette_summary(
     # Layout
     fig.update_layout(
         boxmode="group",
-        xaxis=dict(title=label_key, tickangle=45),
+        xaxis=dict(title=cluster_header, tickangle=45),
         yaxis=dict(title="Silhouette Score", range=[-1, 1]),
         yaxis2=dict(
             title="F-score",
@@ -123,7 +128,7 @@ def plot_silhouette_summary(
             range=[0, 1],
             showgrid=False,
         ),
-        title=f"Silhouette Summary with F-score — {prefix.replace('_silhouette_scores','')}",
+        title=f"Silhouette Summary with F-score",
         width=1600,
         height=800,
         annotations=annotations,
@@ -134,7 +139,7 @@ def plot_silhouette_summary(
     html_path = f"{prefix}_silhouette_fscore_summary.html"
     csv_path = f"{prefix}_silhouette_fscore_summary.csv"
 
-    # Write HTML with SVG export button
+    # Write HTML
     pio.write_html(
         fig,
         html_path,
@@ -151,46 +156,45 @@ def plot_silhouette_summary(
         },
     )
 
-    # Also save SVG directly
+    # Save SVG
     fig.write_image(svg_path)
 
     # Save summary table
     grouped.to_csv(csv_path, index=False)
 
-    print(f"Saved HTML: {html_path}")
-    print(f"Saved SVG: {svg_path}")
-    print(f"Saved CSV: {csv_path}")
+    logger.info(f"Saved HTML: {html_path}")
+    logger.info(f"Saved SVG: {svg_path}")
+    logger.info(f"Saved CSV: {csv_path}")
+
 
 def plot_correlation_summary(
     cluster_summary_path: str,
     x_metric: str,
     y_metrics: List[str],
-    label: str,
+    cluster_header: str,
     fscore_path: Optional[str] = None,
     mapping_path: Optional[str] = None,
 ):
-    import pandas as pd
-    import plotly.express as px
-    from plotly.io import write_image, write_html
-    from pathlib import Path
-    from scipy.stats import pearsonr
-
+    """Generate correlation scatter plots between metrics"""
+    
+    logger.info("Loading cluster summary...")
     df = pd.read_csv(cluster_summary_path)
     prefix = Path(cluster_summary_path).stem
 
     if fscore_path:
+        logger.info(f"Loading F-scores from {fscore_path}...")
         fscore_df = pd.read_csv(fscore_path)
         if mapping_path:
             mapping = pd.read_csv(mapping_path)
-            mapping.columns = [label, "clusterName"]
+            mapping.columns = [cluster_header, "clusterName"]
             fscore_df = fscore_df.merge(mapping, on="clusterName", how="inner")
-        df = df.merge(fscore_df[[label, "f_score"]], on=label, how="left")
+        df = df.merge(fscore_df[[cluster_header, "f_score"]], on=cluster_header, how="left")
 
     results = []
 
     for y_metric in y_metrics:
         if y_metric not in df.columns or x_metric not in df.columns:
-            print(f"[WARN] Skipping: {x_metric} or {y_metric} not in dataframe columns")
+            logger.warning(f"Skipping: {x_metric} or {y_metric} not in dataframe columns")
             continue
 
         x = df[x_metric]
@@ -198,11 +202,12 @@ def plot_correlation_summary(
         r, p = pearsonr(x, y)
         title = f"{y_metric} vs {x_metric} (r={r:.2f}, p={p:.3g})"
 
+        logger.info(f"Generating correlation plot: {y_metric} vs {x_metric}")
         fig = px.scatter(
             df,
             x=x_metric,
             y=y_metric,
-            hover_name=label,
+            hover_name=cluster_header,
             title=title,
             width=1200,
             height=600,
@@ -218,8 +223,9 @@ def plot_correlation_summary(
         try:
             fig.write_html(f"{output_prefix}.html")
             fig.write_image(f"{output_prefix}.svg")
+            logger.info(f"Saved: {output_prefix}.html, {output_prefix}.svg")
         except Exception as e:
-            print(f"[WARN] Export failed: {e}")
+            logger.warning(f"Export failed: {e}")
 
         results.append({
             "x": x_metric,
@@ -231,14 +237,19 @@ def plot_correlation_summary(
 
     results_df = pd.DataFrame(results)
     results_df.to_csv(f"{prefix}_correlation_summary.csv", index=False)
+    logger.info(f"Saved correlation summary: {prefix}_correlation_summary.csv")
+
 
 def plot_dotplot(
     h5ad_path: str,
-    label_key: str,
+    cluster_header: str,
     embedding_key: str,
 ):
+    """Generate embedding dotplot colored by cluster"""
+    
     import scanpy as sc
     
+    logger.info("Loading data...")
     adata = sc.read_h5ad(h5ad_path)
     prefix = Path(h5ad_path).stem
     
@@ -247,16 +258,16 @@ def plot_dotplot(
     df_plot = pd.DataFrame({
         'x': embedding[:, 0],
         'y': embedding[:, 1],
-        label_key: adata.obs[label_key]
+        cluster_header: adata.obs[cluster_header]
     })
     
-    # Create plotly scatter
+    logger.info("Creating plotly scatter plot...")
     fig = px.scatter(
         df_plot,
         x='x',
         y='y',
-        color=label_key,
-        title=f"{embedding_key} colored by {label_key}",
+        color=cluster_header,
+        title=f"{embedding_key} colored by {cluster_header}",
         width=1200,
         height=800
     )
@@ -270,22 +281,25 @@ def plot_dotplot(
     fig.write_html(f"{output_prefix}.html")
     fig.write_image(f"{output_prefix}.svg")
     
-    print(f"Saved HTML: {output_prefix}.html")
-    print(f"Saved SVG: {output_prefix}.svg")
+    logger.info(f"Saved: {output_prefix}.html, {output_prefix}.svg")
+
 
 def plot_distribution(
     cluster_summary_path: str,
-    label_key: str,
+    cluster_header: str,
 ):
-
+    """Generate distribution plots of cluster sizes vs silhouette"""
+    
+    logger.info("Loading cluster summary...")
     df = pd.read_csv(cluster_summary_path)
     prefix = Path(cluster_summary_path).stem
 
     df['count_log10'] = np.log10(df['count'].replace(0, np.nan))
 
-    # === Plot 1: log10 count + silhouette
+    # Plot 1: log10 count + silhouette
+    logger.info("Generating log10 count distribution...")
     df_log = df.sort_values("count_log10", ascending=False).reset_index(drop=True)
-    x = df_log[label_key]
+    x = df_log[cluster_header]
 
     fig_log = make_subplots(specs=[[{"secondary_y": True}]])
 
@@ -318,13 +332,14 @@ def plot_distribution(
     try:
         fig_log.write_html(f"{prefix}_log10.html")
         fig_log.write_image(f"{prefix}_log10.svg")
-
+        logger.info(f"Saved: {prefix}_log10.html, {prefix}_log10.svg")
     except Exception as e:
-        print(f"[WARN] Export log10 failed: {e}")
+        logger.warning(f"Export log10 failed: {e}")
 
-    # === Plot 2: raw count + silhouette
+    # Plot 2: raw count + silhouette
+    logger.info("Generating raw count distribution...")
     df_raw = df.sort_values("count", ascending=False).reset_index(drop=True)
-    x = df_raw[label_key]
+    x = df_raw[cluster_header]
 
     fig_raw = make_subplots(specs=[[{"secondary_y": True}]])
 
@@ -357,7 +372,6 @@ def plot_distribution(
     try:
         fig_raw.write_html(f"{prefix}_raw.html")
         fig_raw.write_image(f"{prefix}_raw.svg")
-
+        logger.info(f"Saved: {prefix}_raw.html, {prefix}_raw.svg")
     except Exception as e:
-        print(f"[WARN] Export raw failed: {e}")
-
+        logger.warning(f"Export raw failed: {e}")
