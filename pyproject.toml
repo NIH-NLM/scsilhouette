@@ -1,6 +1,6 @@
 [project]
 name = "scsilhouette"
-version = "0.1.0"
+version = "1.0"
 description = "Silhouette scoring and quality assessment for single-cell RNA-seq datasets"
 readme = "README.md"
 license = { text = "MIT" }

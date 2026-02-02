@@ -1,6 +1,6 @@
 import typer
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 from . import compute, download, viz, nsforest
 

@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 import scanpy as sc
 import json
+from typing import Optional, List
 from .utils import map_gene_symbols_to_ensembl
 
 def run_silhouette(

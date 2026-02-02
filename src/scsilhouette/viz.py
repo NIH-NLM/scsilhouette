@@ -2,16 +2,11 @@
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.graph_objects as go
-
-import os
-import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 import plotly.io as pio
 

@@ -15,6 +15,7 @@ dependencies:
   - requests
   - jupyterlab
   - ipykernel
+  - metadata
   - matplotlib
   - seaborn
   - sphinx
