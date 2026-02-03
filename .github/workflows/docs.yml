@@ -30,12 +30,13 @@ jobs:
         run: |
           pip install -e .
           pip install sphinx myst-parser sphinx-rtd-theme
+          # Install runtime dependencies so Sphinx can import modules
+          pip install typer plotly pandas numpy scikit-learn scanpy plotly-orca kaleido
 
       - name: Ensure docs directories exist
         run: |
           mkdir -p docs/source/_static docs/source/_templates
 
-      # DEBUG STEP 1
       - name: Check required files exist BEFORE sphinx-apidoc
         run: |
           echo "=== Checking for conf.py ==="
@@ -45,7 +46,14 @@ jobs:
           echo "=== Contents of docs/source/ ==="
           ls -la docs/source/
 
-      # DEBUG STEP 2
+      - name: Test if modules can be imported
+        run: |
+          echo "=== Testing module imports ==="
+          python -c "import sys; sys.path.insert(0, 'src'); import scsilhouette; print('✓ scsilhouette imports')" || echo "✗ scsilhouette import FAILED"
+          python -c "import sys; sys.path.insert(0, 'src'); from scsilhouette import cli; print('✓ cli imports')" || echo "✗ cli import FAILED"
+          python -c "import sys; sys.path.insert(0, 'src'); from scsilhouette import compute; print('✓ compute imports')" || echo "✗ compute import FAILED"
+          python -c "import sys; sys.path.insert(0, 'src'); from scsilhouette import viz; print('✓ viz imports')" || echo "✗ viz import FAILED"
+
       - name: Generate API documentation
         run: |
           echo "=== Running sphinx-apidoc ==="
@@ -53,12 +61,10 @@ jobs:
           echo "=== Files created by sphinx-apidoc ==="
           ls -la docs/source/
 
-      # DEBUG STEP 3
       - name: Build HTML docs with Makefile (verbose)
         run: |
           cd docs && make html SPHINXOPTS="-v"
 
-      # DEBUG STEP 4
       - name: Check build output
         run: |
           echo "=== Build directory contents ==="
@@ -67,9 +73,15 @@ jobs:
           if [ -d docs/build/html ]; then
             ls -la docs/build/html/
             echo "=== Checking for index.html ==="
-            test -f docs/build/html/index.html && echo "✓ index.html exists" || echo "✗ index.html MISSING"
+            if [ -f docs/build/html/index.html ]; then
+              echo "✓ index.html exists ($(wc -c < docs/build/html/index.html) bytes)"
+            else
+              echo "✗ index.html MISSING"
+              exit 1
+            fi
           else
             echo "✗ docs/build/html directory doesn't exist!"
+            exit 1
           fi
 
       - name: Create .nojekyll file

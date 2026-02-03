@@ -1,4 +1,10 @@
 # src/scsilhouette/compute.py
+"""
+Core computation functions for silhouette analysis.
+
+This module contains the main function for computing silhouette scores
+from single-cell data.
+"""
 
 import os
 from pathlib import Path

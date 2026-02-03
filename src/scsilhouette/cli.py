@@ -1,4 +1,10 @@
 # src/scsilhouette/cli.py
+"""
+Command-line interface for scsilhouette.
+
+This module provides CLI commands for computing silhouette scores
+and generating visualizations.
+"""
 
 import typer
 import os
@@ -30,7 +36,23 @@ def compute_silhouette_command(
     save_cluster_summary: bool = typer.Option(True, help="Save cluster summary statistics"),
     save_annotation: bool = typer.Option(True, help="Save annotation metadata"),
 ):
-    """Compute silhouette scores for single-cell clusters"""
+    """
+    Compute silhouette scores for single-cell clusters.
+    
+    This command calculates silhouette scores to assess clustering quality
+    in single-cell RNA-seq data.
+    
+    Args:
+        h5ad_path: Path to input h5ad file
+        cluster_header: Column name for cell type clusters
+        embedding_key: Embedding key (e.g., X_umap)
+        organ: Organ/tissue (e.g., kidney)
+        first_author: First author (e.g., Lake)
+        year: Publication year (e.g., 2023)
+    
+    Returns:
+        None. Writes output files to outputs_{organ}_{first_author}_{year}/
+    """
     
     
     logger.info("="*80)

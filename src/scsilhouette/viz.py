@@ -1,4 +1,10 @@
 # src/scsilhouette/viz.py
+"""
+Visualization functions for silhouette analysis.
+
+This module provides plotting functions for silhouette scores,
+distributions, and summary statistics.
+"""
 
 import os
 from pathlib import Path
