@@ -3,8 +3,6 @@ name: Build and Deploy Sphinx Documentation
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -37,29 +35,54 @@ jobs:
         run: |
           mkdir -p docs/source/_static docs/source/_templates
 
+      # DEBUG STEP 1
+      - name: Check required files exist BEFORE sphinx-apidoc
+        run: |
+          echo "=== Checking for conf.py ==="
+          test -f docs/source/conf.py && echo "✓ conf.py exists" || echo "✗ conf.py MISSING"
+          echo "=== Checking for index.rst ==="
+          test -f docs/source/index.rst && echo "✓ index.rst exists" || echo "✗ index.rst MISSING"
+          echo "=== Contents of docs/source/ ==="
+          ls -la docs/source/
+
+      # DEBUG STEP 2
       - name: Generate API documentation
         run: |
+          echo "=== Running sphinx-apidoc ==="
           sphinx-apidoc -f --separate -o docs/source/ src/scsilhouette
+          echo "=== Files created by sphinx-apidoc ==="
+          ls -la docs/source/
 
-      - name: Build HTML docs with Makefile
+      # DEBUG STEP 3
+      - name: Build HTML docs with Makefile (verbose)
         run: |
-          cd docs && make html
+          cd docs && make html SPHINXOPTS="-v"
+
+      # DEBUG STEP 4
+      - name: Check build output
+        run: |
+          echo "=== Build directory contents ==="
+          ls -la docs/build/
+          echo "=== HTML directory contents ==="
+          if [ -d docs/build/html ]; then
+            ls -la docs/build/html/
+            echo "=== Checking for index.html ==="
+            test -f docs/build/html/index.html && echo "✓ index.html exists" || echo "✗ index.html MISSING"
+          else
+            echo "✗ docs/build/html directory doesn't exist!"
+          fi
 
       - name: Create .nojekyll file
         run: |
           touch docs/build/html/.nojekyll
 
-      - name: Debug - Check build output
-        run: |
-          echo "=== Contents of docs/build/html ==="
-          ls -la docs/build/html/
-          echo "=== Check for index.html ==="
-          test -f docs/build/html/index.html && echo "✓ index.html exists" || echo "✗ index.html missing"
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
-      - name: Upload artifact for GitHub Pages
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/build/html
+          path: 'docs/build/html'
 
   deploy:
     needs: build
@@ -73,6 +96,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     runs-on: ubuntu-latest
+    
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
