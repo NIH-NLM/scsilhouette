@@ -3,9 +3,9 @@
 import typer
 import os
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
 
-from . import compute, download, viz, nsforest
+from . import compute, viz
 from .logging_config import setup_logger
 
 logger = setup_logger()
@@ -22,9 +22,6 @@ def compute_silhouette_command(
     year: str = typer.Option(..., help="Publication year (e.g., 2023)"),
     organism: str = typer.Option("human", help="Organism"),
     disease: str = typer.Option("normal", help="Disease state"),
-    tissue: str = typer.Option(..., help="Tissue type"),
-    cell_count: str = typer.Option("0", help="Cell count"),
-    output_dir: Optional[Path] = typer.Option(None, help="Output directory (auto-generated if not provided)"),
     use_binary_genes: bool = typer.Option(False, help="Use binary genes from NSForest"),
     gene_list_path: Optional[Path] = typer.Option(None, help="Path to gene list"),
     metric: str = typer.Option("euclidean", help="Distance metric for silhouette"),
@@ -35,11 +32,6 @@ def compute_silhouette_command(
 ):
     """Compute silhouette scores for single-cell clusters"""
     
-    # Auto-generate output directory matching NSForest pattern
-    if output_dir is None:
-        output_dir = Path(f"outputs_{organ}_{first_author}_{year}")
-    
-    output_dir.mkdir(parents=True, exist_ok=True)
     
     logger.info("="*80)
     logger.info("Silhouette Score Analysis Pipeline")
@@ -48,7 +40,6 @@ def compute_silhouette_command(
     logger.info(f"Dataset: {organ} / {first_author} / {year}")
     logger.info(f"Cluster header: {cluster_header}")
     logger.info(f"Embedding: {embedding_key}")
-    logger.info(f"Output directory: {output_dir}")
     logger.info("="*80)
     
     compute.run_silhouette(
@@ -60,9 +51,6 @@ def compute_silhouette_command(
         year=year,
         organism=organism,
         disease=disease,
-        tissue=tissue,
-        cell_count=cell_count,
-        output_dir=str(output_dir),
         use_binary_genes=use_binary_genes,
         gene_list_path=str(gene_list_path) if gene_list_path else None,
         metric=metric,
@@ -78,15 +66,16 @@ def viz_summary_command(
     silhouette_score_path: Path = typer.Option(..., help="Path to silhouette scores CSV"),
     silhouette_score_col: str = typer.Option("silhouette_score", help="Column name for scores"),
     cluster_header: str = typer.Option(..., help="Column name for clusters"),
-    output_dir: Optional[Path] = typer.Option(None, help="Output directory"),
+    organ: str = typer.Option(..., help="Organ/tissue"),
+    first_author: str = typer.Option(..., help="First author"),
+    year: str = typer.Option(..., help="Publication year"),
     fscore_path: Optional[Path] = typer.Option(None, help="Path to NSForest results with F-scores"),
     sort_by: str = typer.Option("median", help="Sort by mean|median|std"),
 ):
     """Generate silhouette summary visualization with F-scores"""
     
-    if output_dir:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        os.chdir(str(output_dir))
+    output_dir = f"outputs_{organ}_{first_author}_{year}"
+    os.makedirs(output_dir, exist_ok=True)
     
     viz.plot_silhouette_summary(
         silhouette_score_path=str(silhouette_score_path),
@@ -94,55 +83,31 @@ def viz_summary_command(
         cluster_header=cluster_header,
         fscore_path=str(fscore_path) if fscore_path else None,
         sort_by=sort_by,
-    )
-
-    
-@app.command("viz-correlation")
-def viz_correlation_command(
-    cluster_summary_path: Path = typer.Option(..., help="CSV with cluster summary metrics"),
-    x_metric: str = typer.Option(..., help="X-axis metric (e.g., f_score)"),
-    y_metrics: str = typer.Option(..., help="Comma-separated Y-axis metrics (e.g., mean_silhouette,median_silhouette)"),
-    cluster_header: str = typer.Option(..., help="Column name for clusters"),
-    fscore_path: Optional[Path] = typer.Option(None, help="Path to NSForest F-scores"),
-    mapping_path: Optional[Path] = typer.Option(None, help="Path to cluster mapping file"),
-):
-    """Generate correlation plots between metrics"""
-    
-    viz.plot_correlation_summary(
-        cluster_summary_path=str(cluster_summary_path),
-        x_metric=x_metric,
-        y_metrics=[x.strip() for x in y_metrics.split(",")],
-        cluster_header=cluster_header,
-        fscore_path=str(fscore_path) if fscore_path else None,
-        mapping_path=str(mapping_path) if mapping_path else None,
-    )
-
-
-@app.command("nsforest-genes")
-def nsforest_genes_command(
-    nsforest_path: Path = typer.Option(..., help="Path to NSForest results CSV"),
-    output_path: Path = typer.Option("binary_genes.txt", help="Output file for gene list"),
-):
-    """Extract binary genes from NSForest results"""
-    
-    nsforest.extract_binary_genes(
-        nsforest_path=str(nsforest_path),
-        output_path=str(output_path),
+        output_dir=output_dir,
     )
 
 
 @app.command("viz-dotplot")
 def viz_dotplot_command(
-    h5ad_path: str = typer.Option(..., help="Path to input .h5ad file"),
+    h5ad_path: Path = typer.Option(..., help="Path to input .h5ad file"),
     embedding_key: str = typer.Option(..., help="Embedding key (X_umap, X_tsne)"),
     cluster_header: str = typer.Option(..., help="Column name for clusters"),
+    organ: str = typer.Option(..., help="Organ/tissue"),
+    first_author: str = typer.Option(..., help="First author"),
+    year: str = typer.Option(..., help="Publication year"),
 ):
     """Generate UMAP/embedding dotplot colored by cluster"""
     
+    output_dir = f"outputs_{organ}_{first_author}_{year}"
+    
     viz.plot_dotplot(
-        h5ad_path=h5ad_path,
-        embedding_key=embedding_key,
+        h5ad_path=str(h5ad_path),
         cluster_header=cluster_header,
+        embedding_key=embedding_key,
+        organ=organ,
+        first_author=first_author,
+        year=year,
+        output_dir=output_dir,
     )
 
 
@@ -150,12 +115,21 @@ def viz_dotplot_command(
 def viz_distribution_command(
     cluster_summary_path: Path = typer.Option(..., help="CSV with cluster summary"),
     cluster_header: str = typer.Option(..., help="Column name for clusters"),
+    organ: str = typer.Option(..., help="Organ/tissue"),
+    first_author: str = typer.Option(..., help="First author"),
+    year: str = typer.Option(..., help="Publication year"),
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
+    
+    output_dir = f"outputs_{organ}_{first_author}_{year}"
     
     viz.plot_distribution(
         cluster_summary_path=str(cluster_summary_path),
         cluster_header=cluster_header,
+        organ=organ,
+        first_author=first_author,
+        year=year,
+        output_dir=output_dir,
     )
 
 

@@ -20,11 +20,15 @@ def plot_silhouette_summary(
     silhouette_score_col: str,
     cluster_header: str,
     fscore_path: str = None,
-    output_prefix: str = None,
     sort_by: str = "median",
+    output_dir: str = None,
 ):
     """Generate silhouette summary boxplot with optional F-scores"""
     
+    # File prefix pattern: outputs_{organ}_{author}_{year}/{cluster_header}_
+    prefix = f"{output_dir}/{cluster_header}"
+    logger.info(f"output prefix for files is {prefix}")
+
     logger.info("Loading silhouette scores...")
     df = pd.read_csv(silhouette_score_path)
 
@@ -64,11 +68,15 @@ def plot_silhouette_summary(
     grouped = grouped.sort_values(sort_by, ascending=False)
     ordered_labels = grouped[cluster_header].tolist()
 
+    # Calculate summary statistics
+    median_of_medians = grouped["median"].median()
+    median_of_fscores = grouped["f_score"].median() if has_fscore else None
+
     logger.info("Building plotly figure...")
     fig = go.Figure()
 
     # Silhouette boxplots
-    for label in ordered_labels:
+    for i, label in enumerate(ordered_labels):
         y = df[df[cluster_header] == label][silhouette_score_col]
         fig.add_trace(
             go.Box(
@@ -78,10 +86,17 @@ def plot_silhouette_summary(
                 marker_color="lightblue",
                 line_color="blue",
                 boxmean=True,
-                showlegend=False,
+                showlegend=(i == 0), # show legend for first item only
+                legendgroup="silhouette",
                 yaxis="y1",
+                offsetgroup="silhouette",
             )
         )
+
+    # Update the first trace to have proper legend name
+    if len(fig.data) > 0:
+        fig.data[0].name = "Silhouette Score"
+        fig.data[0].showlegend = True
 
     # F-score bars
     if has_fscore:
@@ -92,35 +107,67 @@ def plot_silhouette_summary(
                 marker_color="orange",
                 name="F-score",
                 yaxis="y2",
-                opacity=0.8,
+                opacity=0.7,
+                offsetgroup="fscore",
+                legendgroup="fscore",
+                showlegend=True,
             )
         )
 
-    # Cluster size annotations
+    # Cluster size annotations - horizontal text just below y=1
     annotations = []
     for _, row in grouped.iterrows():
         annotations.append(
             dict(
                 x=row[cluster_header],
-                y=row["q3"] + 0.05,
+                y=0.92,
                 text=f"n={int(row['count'])}",
                 showarrow=False,
                 yanchor="bottom",
-                font=dict(size=10),
+                xanchor="center",
+                font=dict(size=9),
+                textangle=-90,
+                yref="paper"
             )
         )
 
-    prefix = (
-        output_prefix
-        if output_prefix is not None
-        else os.path.splitext(os.path.basename(silhouette_score_path))[0]
+    # Add summary statistics above legend
+    summary_text = f"Median of Silhouette medians: {median_of_medians:.3f}"
+    if median_of_fscores is not None:
+        summary_text += f"<br>Median of F-scores: {median_of_fscores:.3f}"
+    
+    annotations.append(
+        dict(
+            x=0.98,
+            y=1.03,
+            xref="paper",
+            yref="paper",
+            text=summary_text,
+            showarrow=False,
+            xanchor="right",
+            yanchor="bottom",
+            font=dict(size=11, color="darkblue"),
+            bgcolor="white",
+            bordercolor="black",
+            borderwidth=1,
+            borderpad=4
+        )
     )
 
     # Layout
     fig.update_layout(
         boxmode="group",
-        xaxis=dict(title=cluster_header, tickangle=45),
-        yaxis=dict(title="Silhouette Score", range=[-1, 1]),
+        xaxis=dict(
+            title=cluster_header,
+            tickangle=-45,
+            tickfont=dict(size=10),
+            domain=[0.02, 0.98]
+        ),
+        yaxis=dict(
+            title="Silhouette Score",
+            range=[-1, 1],
+            domain=[0, 0.92]
+        ),
         yaxis2=dict(
             title="F-score",
             overlaying="y",
@@ -128,10 +175,26 @@ def plot_silhouette_summary(
             range=[0, 1],
             showgrid=False,
         ),
-        title=f"Silhouette Summary with F-score",
-        width=1600,
-        height=800,
+        title=dict(
+            text="Silhouette Summary with F-score",
+            x=0.5,
+            xanchor="center",
+            font=dict(size=14)
+        ),
+        width=1800,
+        height=900,
         annotations=annotations,
+        margin=dict(t=100, b=100, l=80, r=80),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=0.98,
+            xanchor="right",
+            x=0.98
+        ),
+        bargap=0.15,
+        bargroupgap=0.05
     )
 
     # Output paths
@@ -148,8 +211,8 @@ def plot_silhouette_summary(
             "toImageButtonOptions": {
                 "format": "svg",
                 "filename": prefix + "_silhouette_fscore_summary",
-                "height": 800,
-                "width": 1600,
+                "height": 900,
+                "width": 1800,
                 "scale": 1,
             },
             "displaylogo": False,
@@ -165,85 +228,19 @@ def plot_silhouette_summary(
     logger.info(f"Saved HTML: {html_path}")
     logger.info(f"Saved SVG: {svg_path}")
     logger.info(f"Saved CSV: {csv_path}")
-
-
-def plot_correlation_summary(
-    cluster_summary_path: str,
-    x_metric: str,
-    y_metrics: List[str],
-    cluster_header: str,
-    fscore_path: Optional[str] = None,
-    mapping_path: Optional[str] = None,
-):
-    """Generate correlation scatter plots between metrics"""
-    
-    logger.info("Loading cluster summary...")
-    df = pd.read_csv(cluster_summary_path)
-    prefix = Path(cluster_summary_path).stem
-
-    if fscore_path:
-        logger.info(f"Loading F-scores from {fscore_path}...")
-        fscore_df = pd.read_csv(fscore_path)
-        if mapping_path:
-            mapping = pd.read_csv(mapping_path)
-            mapping.columns = [cluster_header, "clusterName"]
-            fscore_df = fscore_df.merge(mapping, on="clusterName", how="inner")
-        df = df.merge(fscore_df[[cluster_header, "f_score"]], on=cluster_header, how="left")
-
-    results = []
-
-    for y_metric in y_metrics:
-        if y_metric not in df.columns or x_metric not in df.columns:
-            logger.warning(f"Skipping: {x_metric} or {y_metric} not in dataframe columns")
-            continue
-
-        x = df[x_metric]
-        y = df[y_metric]
-        r, p = pearsonr(x, y)
-        title = f"{y_metric} vs {x_metric} (r={r:.2f}, p={p:.3g})"
-
-        logger.info(f"Generating correlation plot: {y_metric} vs {x_metric}")
-        fig = px.scatter(
-            df,
-            x=x_metric,
-            y=y_metric,
-            hover_name=cluster_header,
-            title=title,
-            width=1200,
-            height=600,
-        )
-        fig.add_shape(
-            type="line",
-            x0=x.min(), x1=x.max(),
-            y0=y.min(), y1=y.max(),
-            line=dict(dash="dot", color="gray")
-        )
-
-        output_prefix = f"{prefix}_{x_metric}_vs_{y_metric}"
-        try:
-            fig.write_html(f"{output_prefix}.html")
-            fig.write_image(f"{output_prefix}.svg")
-            logger.info(f"Saved: {output_prefix}.html, {output_prefix}.svg")
-        except Exception as e:
-            logger.warning(f"Export failed: {e}")
-
-        results.append({
-            "x": x_metric,
-            "y": y_metric,
-            "pearson_r": r,
-            "p_value": p,
-            "n": len(df)
-        })
-
-    results_df = pd.DataFrame(results)
-    results_df.to_csv(f"{prefix}_correlation_summary.csv", index=False)
-    logger.info(f"Saved correlation summary: {prefix}_correlation_summary.csv")
+    logger.info(f"Summary - Median of Medians: {median_of_medians:.3f}")
+    if median_of_fscores:
+        logger.info(f"Summary - Median of F-scores: {median_of_fscores:.3f}")
 
 
 def plot_dotplot(
     h5ad_path: str,
     cluster_header: str,
     embedding_key: str,
+    organ: str,
+    first_author: str,
+    year: str,
+    output_dir: str,
 ):
     """Generate embedding dotplot colored by cluster"""
     
@@ -251,7 +248,12 @@ def plot_dotplot(
     
     logger.info("Loading data...")
     adata = sc.read_h5ad(h5ad_path)
-    prefix = Path(h5ad_path).stem
+    
+    # Always auto-construct output directory
+    prefix = f"{output_dir}/{cluster_header}"
+    logger.info(f"output prefix for files is {prefix}")
+
+    os.makedirs(output_dir, exist_ok=True)
     
     # Get embedding coordinates
     embedding = adata.obsm[embedding_key]
@@ -277,22 +279,31 @@ def plot_dotplot(
         yaxis_title=f"{embedding_key}_2"
     )
     
-    output_prefix = f"dotplot_{prefix}_{embedding_key}"
+    # Output with standard naming pattern
+    output_prefix = f"{prefix}_dotplot_{embedding_key}"
     fig.write_html(f"{output_prefix}.html")
     fig.write_image(f"{output_prefix}.svg")
     
     logger.info(f"Saved: {output_prefix}.html, {output_prefix}.svg")
 
-
 def plot_distribution(
     cluster_summary_path: str,
     cluster_header: str,
+    organ: str,
+    first_author: str,
+    year: str,
+    output_dir: str,
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
     
     logger.info("Loading cluster summary...")
     df = pd.read_csv(cluster_summary_path)
-    prefix = Path(cluster_summary_path).stem
+    
+    # Always auto-construct output directory
+    prefix = f"{output_dir}/{cluster_header}"
+    logger.info(f"output prefix for files is {prefix}")
+
+    os.makedirs(output_dir, exist_ok=True)
 
     df['count_log10'] = np.log10(df['count'].replace(0, np.nan))
 
@@ -321,18 +332,24 @@ def plot_distribution(
 
     fig_log.update_layout(
         title="Cluster Cell Count (log10) vs Silhouette",
-        width=1200, height=600,
-        margin=dict(l=60, r=60, t=80, b=60),
-        xaxis_tickangle=90
+        width=1800,  # Match viz-summary
+        height=900,  # Match viz-summary
+        margin=dict(l=80, r=100, t=80, b=150),  # More bottom margin for angled labels
+        xaxis=dict(
+            title=cluster_header,
+            tickangle=-45,  # 45 degree angle like viz-summary
+            tickfont=dict(size=10)
+        )
     )
 
     fig_log.update_yaxes(title_text="log10(Cell Count)", secondary_y=False)
     fig_log.update_yaxes(title_text="Silhouette Score", secondary_y=True)
 
+    output_prefix_log = f"{prefix}_distribution_log10"
     try:
-        fig_log.write_html(f"{prefix}_log10.html")
-        fig_log.write_image(f"{prefix}_log10.svg")
-        logger.info(f"Saved: {prefix}_log10.html, {prefix}_log10.svg")
+        fig_log.write_html(f"{output_prefix_log}.html")
+        fig_log.write_image(f"{output_prefix_log}.svg")
+        logger.info(f"Saved: {output_prefix_log}.html, {output_prefix_log}.svg")
     except Exception as e:
         logger.warning(f"Export log10 failed: {e}")
 
@@ -361,17 +378,24 @@ def plot_distribution(
 
     fig_raw.update_layout(
         title="Cluster Cell Count (raw) vs Silhouette",
-        width=1200, height=600,
-        margin=dict(l=60, r=60, t=80, b=60),
-        xaxis_tickangle=90
+        width=1800,  # Match viz-summary
+        height=900,  # Match viz-summary
+        margin=dict(l=80, r=100, t=80, b=150),  # More bottom margin for angled labels
+        xaxis=dict(
+            title=cluster_header,
+            tickangle=-45,  # 45 degree angle like viz-summary
+            tickfont=dict(size=10)
+        )
     )
 
     fig_raw.update_yaxes(title_text="Cell Count", secondary_y=False)
     fig_raw.update_yaxes(title_text="Silhouette Score", secondary_y=True)
 
+    output_prefix_raw = f"{prefix}_distribution_raw"
     try:
-        fig_raw.write_html(f"{prefix}_raw.html")
-        fig_raw.write_image(f"{prefix}_raw.svg")
-        logger.info(f"Saved: {prefix}_raw.html, {prefix}_raw.svg")
+        fig_raw.write_html(f"{output_prefix_raw}.html")
+        fig_raw.write_image(f"{output_prefix_raw}.svg")
+        logger.info(f"Saved: {output_prefix_raw}.html, {output_prefix_raw}.svg")
     except Exception as e:
         logger.warning(f"Export raw failed: {e}")
+

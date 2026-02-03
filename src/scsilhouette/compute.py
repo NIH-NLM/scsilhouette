@@ -21,9 +21,6 @@ def run_silhouette(
     year: str,
     organism: str = "human",
     disease: str = "normal",
-    tissue: str = None,
-    cell_count: str = "0",
-    output_dir: str = None,
     use_binary_genes: bool = False,
     gene_list_path: str = None,
     metric: str = "euclidean",
@@ -54,12 +51,6 @@ def run_silhouette(
         Organism (default: human)
     disease : str
         Disease state (default: normal)
-    tissue : str
-        Tissue type
-    cell_count : str
-        Cell count
-    output_dir : str
-        Output directory (auto-generated if None)
     use_binary_genes : bool
         Use binary genes from NSForest
     gene_list_path : str
@@ -92,13 +83,11 @@ def run_silhouette(
     stem = Path(h5ad_path).stem
     logger.info(f"Loaded AnnData: {adata.shape[0]} cells x {adata.shape[1]} genes")
 
-    # Use provided output_dir or auto-generate matching NSForest pattern
-    if output_dir is None:
-        output_dir = f"outputs_{organ}_{first_author}_{year}"
-    
+    # Always auto-construct output directory
+    output_dir = f"outputs_{organ}_{first_author}_{year}"
     os.makedirs(output_dir, exist_ok=True)
     
-    # File prefix pattern matches NSForest: outputs_{organ}_{author}_{year}/{cluster_header}_
+    # File prefix pattern: outputs_{organ}_{author}_{year}/{cluster_header}_
     prefix = f"{output_dir}/{cluster_header}"
     
     logger.info(f"Output prefix: {prefix}")
@@ -201,7 +190,7 @@ def run_silhouette(
                 "n_cells": int(adata.n_obs),
                 "n_clusters": int(cluster_summary_df.shape[0]),
                 "organism": organism,
-                "tissue": tissue,
+                "organ": organ,
                 "disease": disease,
                 "filter_normal": filter_normal
             }
