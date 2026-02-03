@@ -30,59 +30,26 @@ jobs:
         run: |
           pip install -e .
           pip install sphinx myst-parser sphinx-rtd-theme
-          # Install runtime dependencies so Sphinx can import modules
-          pip install typer plotly pandas numpy scikit-learn scanpy plotly-orca kaleido
 
       - name: Ensure docs directories exist
         run: |
           mkdir -p docs/source/_static docs/source/_templates
 
-      - name: Check required files exist BEFORE sphinx-apidoc
-        run: |
-          echo "=== Checking for conf.py ==="
-          test -f docs/source/conf.py && echo "✓ conf.py exists" || echo "✗ conf.py MISSING"
-          echo "=== Checking for index.rst ==="
-          test -f docs/source/index.rst && echo "✓ index.rst exists" || echo "✗ index.rst MISSING"
-          echo "=== Contents of docs/source/ ==="
-          ls -la docs/source/
-
-      - name: Test if modules can be imported
-        run: |
-          echo "=== Testing module imports ==="
-          python -c "import sys; sys.path.insert(0, 'src'); import scsilhouette; print('✓ scsilhouette imports')" || echo "✗ scsilhouette import FAILED"
-          python -c "import sys; sys.path.insert(0, 'src'); from scsilhouette import cli; print('✓ cli imports')" || echo "✗ cli import FAILED"
-          python -c "import sys; sys.path.insert(0, 'src'); from scsilhouette import compute; print('✓ compute imports')" || echo "✗ compute import FAILED"
-          python -c "import sys; sys.path.insert(0, 'src'); from scsilhouette import viz; print('✓ viz imports')" || echo "✗ viz import FAILED"
-
       - name: Generate API documentation
         run: |
-          echo "=== Running sphinx-apidoc ==="
           sphinx-apidoc -f --separate -o docs/source/ src/scsilhouette
-          echo "=== Files created by sphinx-apidoc ==="
-          ls -la docs/source/
 
-      - name: Build HTML docs with Makefile (verbose)
+      - name: Build HTML docs
         run: |
-          cd docs && make html SPHINXOPTS="-v"
+          cd docs && make html
 
-      - name: Check build output
+      - name: Verify build succeeded
         run: |
-          echo "=== Build directory contents ==="
-          ls -la docs/build/
-          echo "=== HTML directory contents ==="
-          if [ -d docs/build/html ]; then
-            ls -la docs/build/html/
-            echo "=== Checking for index.html ==="
-            if [ -f docs/build/html/index.html ]; then
-              echo "✓ index.html exists ($(wc -c < docs/build/html/index.html) bytes)"
-            else
-              echo "✗ index.html MISSING"
-              exit 1
-            fi
-          else
-            echo "✗ docs/build/html directory doesn't exist!"
+          if [ ! -f docs/build/html/index.html ]; then
+            echo "ERROR: Build failed - index.html not found"
             exit 1
           fi
+          echo "✓ Build succeeded - index.html exists"
 
       - name: Create .nojekyll file
         run: |
