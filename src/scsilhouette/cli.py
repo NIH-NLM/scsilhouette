@@ -1,10 +1,10 @@
-# src/scsilhouette/cli.py
 """
 Command-line interface for scsilhouette.
 
 This module provides CLI commands for computing silhouette scores
 and generating visualizations.
 """
+# src/scsilhouette/cli.py
 
 import typer
 import os

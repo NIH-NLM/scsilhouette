@@ -11,21 +11,29 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    'sphinx.ext.autosummary',  # Add this
+    'sphinx.ext.autosummary',
     'myst_parser',
 ]
 
-# Autodoc settings
+# Mock imports for packages not available during doc build
+autodoc_mock_imports = [
+    'numpy',
+    'pandas',
+    'scanpy',
+    'sklearn',
+    'scipy',
+    'plotly',
+    'kaleido',
+    'typer',
+    'mygene',
+]
+
 autodoc_default_options = {
     'members': True,
     'member-order': 'bysource',
-    'special-members': '__init__',
     'undoc-members': True,
     'exclude-members': '__weakref__'
 }
-
-# Mock imports for packages that might not be available during build
-autodoc_mock_imports = []  # Add any problematic imports here if needed
 
 templates_path = ['_templates']
 exclude_patterns = []
