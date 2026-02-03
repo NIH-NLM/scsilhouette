@@ -1,8 +1,5 @@
 # scsilhouette
 
-[![Build and Publish Docker image to GHCR](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-publish.yml)
-[![Build and Deploy Sphinx Documentation](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docs.yml/badge.svg)](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docs.yml)
-
 Silhouette scoring and F-score correlation for single-cell RNA-seq cluster validation.
 
 ---
