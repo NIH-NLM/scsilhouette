@@ -1,25 +1,11 @@
-.. scsilhouette documentation master file
-
-Welcome to scsilhouette's documentation!
-========================================
-
-.. include:: ../README.md
-   :parser: myst_parser.sphinx_
-
-Contents
---------
+scsilhouette Documentation
+===========================
 
 .. toctree::
    :maxdepth: 2
-   :caption: Topics
+   :caption: Contents:
 
-   process
-
-Additional Resources
---------------------
-
-* `GitHub Repository <https://github.com/NIH-NLM/scsilhouette>`_
-* `Project Website <https://nih-nlm.github.io/scsilhouette>`_
+   modules
 
 Indices and tables
 ==================
@@ -27,4 +13,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
