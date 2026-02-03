@@ -23,34 +23,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Conda with environment.yml
-        uses: conda-incubator/setup-miniconda@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          environment-file: environment.yml
-          activate-environment: scsilhouette
-          auto-activate-base: false
-          python-version: "3.10"
+          python-version: '3.10'
 
-      - name: Install package and documentation dependencies
-        shell: bash -l {0}
+      - name: Install dependencies
         run: |
           pip install -e .
           pip install sphinx myst-parser sphinx-rtd-theme
 
-      - name: Create docs directory structure if needed
-        shell: bash -l {0}
+      - name: Ensure docs directories exist
         run: |
-          mkdir -p docs/source docs/build
+          mkdir -p docs/source/_static docs/source/_templates
 
       - name: Generate API documentation
-        shell: bash -l {0}
         run: |
           sphinx-apidoc -f --separate -o docs/source/ src/scsilhouette
 
-      - name: Build HTML docs with Sphinx
-        shell: bash -l {0}
+      - name: Build HTML docs with Makefile
         run: |
-          sphinx-build -b html docs/source docs/build/html
+          cd docs && make html
+
+      - name: Create .nojekyll file
+        run: |
+          touch docs/build/html/.nojekyll
+
+      - name: Debug - Check build output
+        run: |
+          echo "=== Contents of docs/build/html ==="
+          ls -la docs/build/html/
+          echo "=== Check for index.html ==="
+          test -f docs/build/html/index.html && echo "✓ index.html exists" || echo "✗ index.html missing"
 
       - name: Upload artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v3
