@@ -1,3 +1,4 @@
+[![Build and Deploy Sphinx Documentation](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docs.yml/badge.svg)](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docs.yml)
 # scsilhouette
 
 Silhouette scoring and F-score correlation for single-cell RNA-seq cluster validation.
