@@ -1,5 +1,6 @@
 # scsilhouette
 
+[![Build and Push Docker Image](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-build.yml/badge.svg)](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docker-build.yml)
 [![Documentation Status](https://github.com/NIH-NLM/scsilhouette/actions/workflows/docs.yml/badge.svg)](https://nih-nlm.github.io/scsilhouette/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
