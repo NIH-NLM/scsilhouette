@@ -13,12 +13,7 @@ on:
     types: [published]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-environment:
+env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -69,26 +64,3 @@ jobs:
 
       - name: Image digest
         run: echo ${{ steps.meta.outputs.digest }}
-```
-
-## What This Does:
-
-1. **Triggers on:**
-   - Push to `main` branch (when Dockerfile or source code changes)
-   - Release published
-   - Manual trigger (workflow_dispatch)
-
-2. **Builds and pushes to:**
-   - `ghcr.io/nih-nlm/scsilhouette:latest` (on main branch)
-   - `ghcr.io/nih-nlm/scsilhouette:1.0` (on release v1.0)
-   - `ghcr.io/nih-nlm/scsilhouette:1` (major version)
-
-3. **Uses GitHub Actions cache** for faster builds
-
-## Enable GitHub Container Registry
-
-You need to make the package public:
-
-1. After first successful build, go to:
-```
-   https://github.com/orgs/NIH-NLM/packages/container/scsilhouette/settings
