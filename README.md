@@ -156,6 +156,34 @@ A Docker container is available for reproducible analysis:
 docker pull ghcr.io/nih-nlm/scsilhouette:1.0
 ```
 
+## Docker Container
+
+A Docker container is available for reproducible analysis:
+```bash
+docker pull ghcr.io/nih-nlm/scsilhouette:1.0
+```
+
+### Using on Apple Silicon (M1/M2/M3)
+
+The container is built for linux/amd64. On Apple Silicon Macs, use the `--platform` flag:
+```bash
+# Pull the image
+docker pull --platform linux/amd64 ghcr.io/nih-nlm/scsilhouette:1.0
+
+# Run commands
+docker run --platform linux/amd64 -v $(pwd)/data:/data \
+  ghcr.io/nih-nlm/scsilhouette:1.0 \
+  compute-silhouette \
+  --h5ad-path /data/test.h5ad \
+  --cluster-header "cell_type" \
+  --embedding-key "X_umap" \
+  --organ "kidney" \
+  --first-author "Lake" \
+  --year "2023"
+```
+
+Note: The container will run under x86_64 emulation on Apple Silicon, which is slightly slower but fully functional.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
