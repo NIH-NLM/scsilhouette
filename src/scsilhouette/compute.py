@@ -204,5 +204,23 @@ def run_silhouette(
             json.dump(annotation_output, f, indent=2)
         logger.info(f"Saved annotation metadata to {annotation_json}")
 
+        dataset_summary_csv = f"{prefix}_dataset_summary.csv"
+        dataset_summary_df = pd.DataFrame([{
+            "organ":              organ,
+            "first_author":       first_author,
+            "year":               year,
+            "cluster_header":     cluster_header,
+            "n_cells":            int(adata.n_obs),
+            "n_clusters":         int(cluster_summary_df.shape[0]),
+            "median_of_medians":  float(cluster_summary_df['median_silhouette'].median()),
+            "median_of_means":    float(cluster_summary_df['mean_silhouette'].median()),
+            "median_of_stds":     float(cluster_summary_df['std_silhouette'].median()),
+            "organism":           organism,
+            "disease":            disease,
+        }])
+        dataset_summary_df.to_csv(dataset_summary_csv, index=False)
+        logger.info(f"Saved dataset summary to {dataset_summary_csv}")
+
+
     logger.info("Silhouette analysis complete!")
     return adata
