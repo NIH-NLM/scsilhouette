@@ -27,43 +27,66 @@ def compute_silhouette_command(
     first_author: str = typer.Option(..., help="First author (e.g., Lake)"),
     year: str = typer.Option(..., help="Publication year (e.g., 2023)"),
     organism: str = typer.Option("human", help="Organism"),
-    disease: str = typer.Option("normal", help="Disease state"),
+    disease: str = typer.Option("normal", help="Disease state label for annotation output"),
     use_binary_genes: bool = typer.Option(False, help="Use binary genes from NSForest"),
     gene_list_path: Optional[Path] = typer.Option(None, help="Path to gene list"),
     metric: str = typer.Option("euclidean", help="Distance metric for silhouette"),
-    filter_normal: str = typer.Option("True", help="Filter to normal cells only"),
+    filter_normal: bool = typer.Option(False, "--filter-normal/--no-filter-normal",
+                                       help="Filter to normal adult cells only (requires --uberon)."),
+    uberon: Optional[Path] = typer.Option(
+        None,
+        "--uberon",
+        help=(
+            "Path to UBERON JSON from cellxgene-harvester resolve-uberon. "
+            "Required when --filter-normal is True. "
+            "Drives tissue (tissue_ontology_term_id) and disease (PATO:0000461) filtering."
+        ),
+    ),
+    min_age: int = typer.Option(
+        15,
+        "--min-age",
+        help="Minimum donor age in years for adult cell filtering (default 15).",
+    ),
     save_scores: bool = typer.Option(True, help="Save per-cell silhouette scores"),
     save_cluster_summary: bool = typer.Option(True, help="Save cluster summary statistics"),
     save_annotation: bool = typer.Option(True, help="Save annotation metadata"),
 ):
     """
     Compute silhouette scores for single-cell clusters.
-    
-    This command calculates silhouette scores to assess clustering quality
-    in single-cell RNA-seq data.
-    
-    Args:
-        h5ad_path: Path to input h5ad file
-        cluster_header: Column name for cell type clusters
-        embedding_key: Embedding key (e.g., X_umap)
-        organ: Organ/tissue (e.g., kidney)
-        first_author: First author (e.g., Lake)
-        year: Publication year (e.g., 2023)
-    
-    Returns:
-        None. Writes output files to outputs_{organ}_{first_author}_{year}/
+
+    When --filter-normal is set (requires --uberon):
+      1. Tissue  — tissue_ontology_term_id matched against UBERON obo_ids
+      2. Disease — disease_ontology_term_id == PATO:0000461 (normal)
+      3. Age     — development_stage parsed, keeps cells >= --min-age years
+
+    Silhouette scores are computed on the filtered cell set only.
+    Outputs are written to outputs_{organ}_{first_author}_{year}/.
+
+    Example:
+        scsilhouette compute-silhouette \\
+            --h5ad-path data/dataset.h5ad \\
+            --cluster-header cell_type \\
+            --embedding-key X_umap \\
+            --organ kidney \\
+            --first-author Lake \\
+            --year 2023 \\
+            --filter-normal True \\
+            --uberon data/uberon_kidney.json \\
+            --min-age 15
     """
-    
-    
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("Silhouette Score Analysis Pipeline")
-    logger.info("="*80)
-    logger.info(f"Input file: {h5ad_path}")
-    logger.info(f"Dataset: {organ} / {first_author} / {year}")
+    logger.info("=" * 80)
+    logger.info(f"Input file    : {h5ad_path}")
+    logger.info(f"Dataset       : {organ} / {first_author} / {year}")
     logger.info(f"Cluster header: {cluster_header}")
-    logger.info(f"Embedding: {embedding_key}")
-    logger.info("="*80)
-    
+    logger.info(f"Embedding     : {embedding_key}")
+    logger.info(f"Filter normal : {'yes' if filter_normal else 'no'}")
+    if uberon:
+        logger.info(f"UBERON JSON   : {uberon}")
+        logger.info(f"Min age       : {min_age}")
+    logger.info("=" * 80)
+
     compute.run_silhouette(
         h5ad_path=str(h5ad_path),
         cluster_header=cluster_header,
@@ -77,6 +100,8 @@ def compute_silhouette_command(
         gene_list_path=str(gene_list_path) if gene_list_path else None,
         metric=metric,
         filter_normal=filter_normal,
+        uberon_json=str(uberon) if uberon else None,
+        min_age=min_age,
         save_scores=save_scores,
         save_cluster_summary=save_cluster_summary,
         save_annotation=save_annotation,
@@ -95,10 +120,10 @@ def viz_summary_command(
     sort_by: str = typer.Option("median", help="Sort by mean|median|std"),
 ):
     """Generate silhouette summary visualization with F-scores"""
-    
+
     output_dir = f"outputs_{organ}_{first_author}_{year}"
     os.makedirs(output_dir, exist_ok=True)
-    
+
     viz.plot_silhouette_summary(
         silhouette_score_path=str(silhouette_score_path),
         silhouette_score_col=silhouette_score_col,
@@ -119,9 +144,9 @@ def viz_dotplot_command(
     year: str = typer.Option(..., help="Publication year"),
 ):
     """Generate UMAP/embedding dotplot colored by cluster"""
-    
+
     output_dir = f"outputs_{organ}_{first_author}_{year}"
-    
+
     viz.plot_dotplot(
         h5ad_path=str(h5ad_path),
         cluster_header=cluster_header,
@@ -142,9 +167,9 @@ def viz_distribution_command(
     year: str = typer.Option(..., help="Publication year"),
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
-    
+
     output_dir = f"outputs_{organ}_{first_author}_{year}"
-    
+
     viz.plot_distribution(
         cluster_summary_path=str(cluster_summary_path),
         cluster_header=cluster_header,
