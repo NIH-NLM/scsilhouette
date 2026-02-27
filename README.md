@@ -20,6 +20,7 @@ Full documentation is available at: **[https://nih-nlm.github.io/scsilhouette/](
 - **Standardized output** structure compatible with NSForest workflows
 - **Distribution analysis** of cluster sizes vs silhouette scores
 - **Publication-ready plots** in SVG and interactive HTML formats
+- **Ontology-based filtering** using UBERON, disease, and HsapDv JSON files from cellxgene-harvester
 
 ## Installation
 
@@ -46,7 +47,7 @@ pip install -e .
 
 ## Quick Start
 
-### Compute Silhouette Scores
+### Compute Silhouette Scores (unfiltered)
 ```bash
 scsilhouette compute-silhouette \
     --h5ad-path data.h5ad \
@@ -57,12 +58,47 @@ scsilhouette compute-silhouette \
     --year "2023"
 ```
 
+### Compute Silhouette Scores (filtered to normal adult tissue)
+
+First generate the three ontology JSON files using
+[cellxgene-harvester](https://github.com/NIH-NLM/cellxgene-harvester):
+
+```bash
+# One-time per organ
+cellxgene-harvester resolve-uberon kidney  > data/uberon_kidney.json
+
+# One-time (organ-independent)
+cellxgene-harvester resolve-disease normal > data/disease_normal.json
+cellxgene-harvester resolve-hsapdv --min-age 15 > data/hsapdv_adult_15.json
+```
+
+Then pass all three to `compute-silhouette`:
+
+```bash
+scsilhouette compute-silhouette \
+    --h5ad-path data.h5ad \
+    --cluster-header "cell_type" \
+    --embedding-key "X_umap" \
+    --organ "kidney" \
+    --first-author "Lake" \
+    --year "2023" \
+    --filter-normal \
+    --uberon  data/uberon_kidney.json \
+    --disease data/disease_normal.json \
+    --hsapdv  data/hsapdv_adult_15.json
+```
+
+Filter stages applied in order:
+1. **Tissue** — `tissue_ontology_term_id` matched against UBERON obo_ids
+2. **Disease** — `disease_ontology_term_id` matched against disease obo_ids
+3. **Age** — `development_stage_ontology_term_id` matched against HsapDv obo_ids (age threshold is encoded in the JSON at resolve time, not here)
+
 **Output directory:** `outputs_kidney_Lake_2023/`
 
 **Output files:**
-- `cell_type_silhouette_scores.csv` - Per-cell scores
-- `cell_type_cluster_summary.csv` - Cluster statistics
-- `cell_type_annotation.json` - Metadata
+- `cell_type_silhouette_scores.csv` — per-cell scores
+- `cell_type_cluster_summary.csv` — per-cluster mean / median / std
+- `cell_type_annotation.json` — dataset metadata and filter provenance
 
 ### Generate Summary Visualization with NSForest F-scores
 ```bash
@@ -74,11 +110,6 @@ scsilhouette viz-summary \
     --year "2023" \
     --fscore-path outputs_kidney_Lake_2023/cell_type_results.csv
 ```
-
-**Output:**
-- Interactive HTML plot with side-by-side silhouette boxplots and F-score bars
-- SVG for publication
-- Summary statistics (median of medians)
 
 ### Create Embedding Dotplot
 ```bash
@@ -101,44 +132,140 @@ scsilhouette viz-distribution \
     --year "2023"
 ```
 
+## Nextflow Workflow Integration
+
+`scsilhouette` is the scsilhouette component of the
+[sc-nsforest-qc-nf](https://github.com/NIH-NLM/sc-nsforest-qc-nf)
+Nextflow pipeline.  The pipeline runs NSForest marker discovery and silhouette
+QC in parallel across every dataset listed in a harvester CSV, then publishes
+results to [cell-kn](https://github.com/NIH-NLM/cell-kn) automatically.
+
+### One-time setup
+
+```bash
+# Clone the workflow
+git clone https://github.com/NIH-NLM/sc-nsforest-qc-nf.git
+cd sc-nsforest-qc-nf
+
+# Generate organ-specific ontology JSON files (kidney example)
+cellxgene-harvester resolve-uberon  kidney > data/uberon_kidney.json
+cellxgene-harvester resolve-disease normal > data/disease_normal.json
+cellxgene-harvester resolve-hsapdv  --min-age 15 > data/hsapdv_adult_15.json
+```
+
+### Running the workflow
+
+```bash
+nextflow run main.nf \
+    --datasets_csv   data/homo_sapiens_kidney_harvester_final.csv \
+    --organ          kidney \
+    --uberon_json    data/uberon_kidney.json \
+    --disease_json   data/disease_normal.json \
+    --hsapdv_json    data/hsapdv_adult_15.json \
+    --github_token   "$(cat ~/.github_token)" \
+    -c               configs/macamd64.config
+```
+
+> **Security note — `--github_token`:**
+> The token is used by the `publish_results` module to push a results branch
+> and open a pull request against `NIH-NLM/cell-kn`.  Never hardcode the token
+> in a config file or commit it to version control.  The recommended approaches
+> are:
+>
+> **Option 1 — params JSON file (preferred)**
+> ```json
+> { "github_token": "ghp_xxxxxxxxxxxxxxxxxxxx" }
+> ```
+> ```bash
+> nextflow run main.nf -params-file params.json ...
+> ```
+> Add `params.json` to `.gitignore`.
+>
+> **Option 2 — environment variable**
+> ```bash
+> export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
+> nextflow run main.nf --github_token "$GITHUB_TOKEN" ...
+> ```
+>
+> **Option 3 — Nextflow secrets (Nextflow Tower / Seqera Platform)**
+> ```bash
+> nextflow secrets set GITHUB_TOKEN ghp_xxxxxxxxxxxxxxxxxxxx
+> ```
+> Then reference it in `nextflow.config` as `params.github_token = secrets.GITHUB_TOKEN`.
+
+### Datasets CSV columns
+
+The `--datasets_csv` file must have these columns:
+
+| Column | Description |
+|--------|-------------|
+| `h5ad_file` | Absolute or relative path to the `.h5ad` file |
+| `first_author` | Surname of first author (used in output naming) |
+| `year` | Publication year |
+| `author_cell_type` | Column name in `adata.obs` containing cluster labels |
+| `embedding` | Embedding key, e.g. `X_umap` |
+| `disease` | Disease label string for annotation output |
+| `filter_normal` | `True` or `False` — whether to apply the three-stage ontology filter |
+| `reference` | Processing flag (see table below) |
+
+**`reference` column values:**
+
+| Value | Behaviour |
+|-------|-----------|
+| `yes` | Process this dataset |
+| `no` | Process this dataset (not a reference atlas) |
+| `unk` | Process this dataset (reference status unknown) |
+| `exclude` | Skip — explicitly excluded |
+| `delete` | Skip — marked for deletion |
+| `merge` | Skip — to be merged with another dataset |
+| `question` | Skip — under review |
+
+### Published output structure
+
+After the workflow completes, a pull request is opened against `main` on
+`NIH-NLM/cell-kn` with results written to:
+
+```
+data/prod/{organ}/
+├── nsforest/
+│   └── {organ}_{first_author}_{year}/    ← one directory per processed dataset
+└── scsilhouette/
+    └── {organ}_{first_author}_{year}/    ← one directory per processed dataset
+```
+
+The cellxgene-harvester outputs and human-in-the-loop annotation are deposited
+manually into the same `data/prod/{organ}/` tree before the PR is merged.
+
 ## Use Cases
 
 ### Quality Control for Single-Cell Clustering
 
-Silhouette scores measure how similar cells are to their assigned cluster compared to other clusters:
-- **Score near +1**: Well-matched to cluster
-- **Score near 0**: On the border between clusters
-- **Score near -1**: Possibly assigned to wrong cluster
+Silhouette scores measure how similar cells are to their assigned cluster
+compared to other clusters:
+
+- **Score near +1** — well-matched to cluster
+- **Score near 0** — on the border between clusters
+- **Score near −1** — possibly assigned to the wrong cluster
 
 ### Integration with NSForest
 
-`scsilhouette` is designed to work seamlessly with [NSForest](https://github.com/JCVenterInstitute/NSForest) marker discovery:
-- **Combined QC**: Assess both marker quality (F-scores) and cluster separation (silhouette)
-- **Standardized outputs**: Matching directory structure `outputs_{organ}_{author}_{year}/`
-- **Integrated visualizations**: Side-by-side comparison of metrics
+`scsilhouette` is designed to work seamlessly with
+[NSForest](https://github.com/JCVenterInstitute/NSForest) marker discovery:
 
-### Workflow Integration
-
-Used in the [sc-nsforest-qc-nf](https://github.com/NIH-NLM/sc-nsforest-qc-nf) Nextflow pipeline for scalable, parallelized analysis on CloudOS.
-
-## Output Examples
-
-### Silhouette Summary with F-scores
-![Silhouette Summary](docs/images/silhouette_summary_example.png)
-
-### Distribution Analysis
-Side-by-side comparison of cluster sizes (log10 and raw) with silhouette scores to identify potential issues with very small or very large clusters.
+- **Combined QC** — assess both marker quality (F-scores) and cluster separation (silhouette)
+- **Standardized outputs** — matching directory structure `outputs_{organ}_{author}_{year}/`
+- **Integrated visualizations** — side-by-side comparison of both metrics
 
 ## Output Structure
 
-All outputs follow the pattern: `outputs_{organ}_{first_author}_{year}/{cluster_header}_*`
+All outputs follow the pattern `outputs_{organ}_{first_author}_{year}/{cluster_header}_*`:
+
 ```
 outputs_kidney_Lake_2023/
 ├── cell_type_silhouette_scores.csv
-├── cell_type_silhouette_scores.json
 ├── cell_type_cluster_summary.csv
-├── cell_type_cluster_summary.json
 ├── cell_type_annotation.json
+├── cell_type_dataset_summary.csv
 ├── cell_type_silhouette_fscore_summary.html
 ├── cell_type_silhouette_fscore_summary.svg
 ├── cell_type_dotplot_X_umap.html
@@ -151,26 +278,17 @@ outputs_kidney_Lake_2023/
 
 ## Docker Container
 
-A Docker container is available for reproducible analysis:
-```bash
-docker pull ghcr.io/nih-nlm/scsilhouette:1.0
-```
-
-## Docker Container
-
-A Docker container is available for reproducible analysis:
 ```bash
 docker pull ghcr.io/nih-nlm/scsilhouette:1.0
 ```
 
 ### Using on Apple Silicon (M1/M2/M3)
 
-The container is built for linux/amd64. On Apple Silicon Macs, use the `--platform` flag:
+The container is built for `linux/amd64`. On Apple Silicon Macs:
+
 ```bash
-# Pull the image
 docker pull --platform linux/amd64 ghcr.io/nih-nlm/scsilhouette:1.0
 
-# Run commands
 docker run --platform linux/amd64 -v $(pwd)/data:/data \
   ghcr.io/nih-nlm/scsilhouette:1.0 \
   compute-silhouette \
@@ -182,21 +300,18 @@ docker run --platform linux/amd64 -v $(pwd)/data:/data \
   --year "2023"
 ```
 
-Note: The container will run under x86_64 emulation on Apple Silicon, which is slightly slower but fully functional.
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License — see the LICENSE file for details.
 
 ## Acknowledgments
 
 Developed by the National Library of Medicine (NLM), National Institutes of Health (NIH).
-
-Part of the Cell Knowledge Network project
+Part of the Cell Knowledge Network project.
 
 ## Contact
 
@@ -204,10 +319,10 @@ For questions or issues, please [open an issue](https://github.com/NIH-NLM/scsil
 
 ## Related Projects
 
-- [cell-kn](https://github.com/NIH-NLM/cell-kn) - NIH NLM Cell Knowledge Network
-- [NSForest](https://github.com/JCVenterInstitute/NSForest) - Marker gene discovery
-- [sc-nsforest-qc-nf](https://github.com/NIH-NLM/sc-nsforest-qc-nf) - Nextflow workflow combining NSForest and scsilhouette
-- [cellxgene-harvester](https://github.com/NIH-NLM/cellxgene-harvester) - Single-cell data aggregation from CellxGene
+- [cell-kn](https://github.com/NIH-NLM/cell-kn) — NIH NLM Cell Knowledge Network
+- [NSForest](https://github.com/JCVenterInstitute/NSForest) — Marker gene discovery
+- [sc-nsforest-qc-nf](https://github.com/NIH-NLM/sc-nsforest-qc-nf) — Nextflow workflow combining NSForest and scsilhouette
+- [cellxgene-harvester](https://github.com/NIH-NLM/cellxgene-harvester) — Single-cell data aggregation from CellxGene
 
 ## Citation
 
