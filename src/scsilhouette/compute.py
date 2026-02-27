@@ -7,7 +7,6 @@ from single-cell data.
 # src/scsilhouette/compute.py
 import json
 import os
-import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -21,126 +20,70 @@ from .logging_config import setup_logger
 
 logger = setup_logger()
 
-# Terms that definitively exclude a cell from adult filtering.
-# Copied verbatim from cellxgene-harvester count_normal_cells.py.
-_EXCLUDE_STAGE_TERMS = [
-    'fetal', 'embryo', 'newborn', 'prenatal', 'lmp',
-    'post-fertilization', 'week post', 'Carnegie stage',
-    'trimester', 'gestational'
-]
-
 
 # =============================================================================
-# Shared helpers (identical logic to cellxgene-harvester)
+# Ontology JSON loaders (mirror cellxgene-harvester helpers)
 # =============================================================================
 
-def load_uberon_obo_ids(uberon_json: str) -> set:
-    """
-    Load UBERON obo_ids from a resolved JSON file produced by
-    cellxgene-harvester resolve-uberon.
-
-    Args:
-        uberon_json: Path to uberon_<tissue>.json
-
-    Returns:
-        Set of UBERON obo_id strings e.g. {'UBERON:0002113', ...}
-    """
-    with open(uberon_json) as f:
+def load_obo_ids(json_path: str, label: str) -> set:
+    """Load obo_ids from a resolve_uberon / resolve_disease JSON file."""
+    with open(json_path) as f:
         data = json.load(f)
     obo_ids = set(data["obo_ids"])
     roots   = [t["label"] for t in data["root_terms"]]
-    logger.info(f"  Loaded UBERON JSON : {uberon_json}")
-    logger.info(f"  Root terms         : {', '.join(roots)}")
-    logger.info(f"  Total obo_ids      : {len(obo_ids):,}")
+    logger.info(f"  Loaded {label} JSON : {json_path}")
+    logger.info(f"  Root terms          : {', '.join(roots)}")
+    logger.info(f"  Total obo_ids       : {len(obo_ids):,}")
     return obo_ids
 
 
-def extract_age_from_stage(stage_label: str) -> Optional[int]:
+def load_obo_labels(json_path: str) -> dict:
+    """Load obo_id -> label mapping from any resolve JSON file."""
+    with open(json_path) as f:
+        data = json.load(f)
+    return {t["obo_id"]: t["label"] for t in data["terms"] if t.get("obo_id")}
+
+
+def filter_by_age(adata, hsapdv_json: str):
+    """Filter cells using development_stage_ontology_term_id matched against HsapDv obo_ids.
+
+    Age threshold is encoded in the JSON at resolve time
+    (cellxgene-harvester resolve-hsapdv --min-age N).
+    No numeric comparison — identical pattern to tissue and disease filters.
     """
-    Parse numeric age from a development_stage label string.
-    e.g. '25-year-old stage' → 25, '3rd decade' → None
-
-    Copied verbatim from cellxgene-harvester count_normal_cells.py.
-    """
-    if not stage_label or not isinstance(stage_label, str):
-        return None
-    match = re.search(r'(\d+)[- ]?(?:year|yr)', stage_label.lower())
-    return int(match.group(1)) if match else None
-
-
-def filter_adult_cells(adata, min_age: int):
-    """
-    Filter cells to adults only using development_stage text parsing.
-
-    Logic (same as cellxgene-harvester count_normal_cells.py):
-      - Exclude cells whose stage matches any _EXCLUDE_STAGE_TERMS
-      - Include cells whose stage contains 'adult'
-      - Include cells where parsed numeric age >= min_age
-      - Exclude everything else (unparseable = conservative exclusion)
-
-    Args:
-        adata:   AnnData object
-        min_age: Minimum age in years (default 15)
-
-    Returns:
-        Filtered AnnData copy, labels Series filtered to match
-    """
-    if 'development_stage' not in adata.obs.columns:
-        logger.warning("  'development_stage' not found in obs — skipping age filter")
+    id_col = "development_stage_ontology_term_id"
+    if id_col not in adata.obs.columns:
+        logger.warning(f"  '{id_col}' not found in obs - skipping age filter")
         return adata
 
-    if min_age == 0:
-        logger.info("  min_age=0 — skipping age filter")
-        return adata
+    obo_ids    = load_obo_ids(hsapdv_json, "HsapDv")
+    obo_labels = load_obo_labels(hsapdv_json)
+    mask       = adata.obs[id_col].isin(obo_ids)
+    n_before   = adata.n_obs
 
-    adult_mask           = []
-    cells_adult          = 0
-    cells_child          = 0
-    cells_excluded_fetal = 0
-    cells_unparseable    = 0
+    all_counts     = adata.obs[id_col].value_counts()
+    kept_terms     = [(tid, cnt) for tid, cnt in all_counts.items() if tid in obo_ids]
+    excluded_terms = [(tid, cnt) for tid, cnt in all_counts.items() if tid not in obo_ids]
 
-    for stage_val in adata.obs['development_stage'].astype(str):
-        stage_lower = stage_val.lower()
+    logger.info(f"  Kept     ({len(kept_terms)} terms, "
+                f"{sum(c for _, c in kept_terms):,} cells):")
+    for term_id, count in kept_terms:
+        label = obo_labels.get(term_id, "unknown label")
+        logger.info(f"    KEPT     {term_id}  {label}: {count:,} cells")
 
-        if not stage_val or stage_val in ('nan', 'None') or stage_val.strip() == '':
-            adult_mask.append(False)
-            cells_unparseable += 1
-            continue
+    if excluded_terms:
+        logger.info(f"  Excluded ({len(excluded_terms)} terms, "
+                    f"{sum(c for _, c in excluded_terms):,} cells):")
+        for term_id, count in excluded_terms:
+            label = obo_labels.get(term_id, "unknown label — not in HsapDv JSON")
+            logger.info(f"    EXCLUDED {term_id}  {label}: {count:,} cells")
+    else:
+        logger.info("  No cells excluded by age filter")
 
-        if any(term in stage_lower for term in _EXCLUDE_STAGE_TERMS):
-            adult_mask.append(False)
-            cells_excluded_fetal += 1
-            continue
-
-        if 'adult' in stage_lower:
-            adult_mask.append(True)
-            cells_adult += 1
-            continue
-
-        age = extract_age_from_stage(stage_val)
-        if age is not None:
-            if age >= min_age:
-                adult_mask.append(True)
-                cells_adult += 1
-            else:
-                adult_mask.append(False)
-                cells_child += 1
-        else:
-            adult_mask.append(False)
-            cells_unparseable += 1
-
-    n_before       = adata.n_obs
-    adata_filtered = adata[adult_mask].copy()
-    n_after        = adata_filtered.n_obs
-
-    logger.info(f"  Age filter (>= {min_age} years): {n_before:,} → {n_after:,} cells "
-                f"({n_before - n_after:,} removed)")
-    logger.info(f"    Adult      : {cells_adult:,}")
-    logger.info(f"    Child      : {cells_child:,}")
-    logger.info(f"    Fetal/emb  : {cells_excluded_fetal:,}")
-    logger.info(f"    Unparseable: {cells_unparseable:,}")
-
-    return adata_filtered
+    adata = adata[mask].copy()
+    logger.info(f"  Age filter (HsapDv IDs): {n_before:,} -> {adata.n_obs:,} cells "
+                f"({n_before - adata.n_obs:,} removed)")
+    return adata
 
 
 # =============================================================================
@@ -162,7 +105,8 @@ def run_silhouette(
     pca_components: int = None,
     filter_normal: bool = True,
     uberon_json: str = None,
-    min_age: int = 15,
+    disease_json: str = None,
+    hsapdv_json: str = None,
     save_scores: bool = True,
     save_cluster_summary: bool = True,
     save_annotation: bool = True,
@@ -197,12 +141,17 @@ def run_silhouette(
     pca_components : int
         Number of PCA components (optional)
     filter_normal : bool
-        If True, apply tissue + disease + age filters (requires uberon_json)
+        If True, apply tissue + disease + age filters
     uberon_json : str
         Path to UBERON JSON from cellxgene-harvester resolve-uberon.
         Required when filter_normal=True.
-    min_age : int
-        Minimum donor age in years for adult cell filtering (default 15)
+    disease_json : str
+        Path to disease JSON from cellxgene-harvester resolve-disease.
+        Required when filter_normal=True.
+    hsapdv_json : str
+        Path to HsapDv JSON from cellxgene-harvester resolve-hsapdv --min-age N.
+        Age threshold is encoded in the JSON at resolve time.
+        Required when filter_normal=True.
     save_scores : bool
         Save per-cell silhouette scores
     save_cluster_summary : bool
@@ -227,6 +176,16 @@ def run_silhouette(
         raise ValueError(
             "--uberon JSON file is required when --filter-normal is True. "
             "Generate it with: cellxgene-harvester resolve-uberon <tissue>"
+        )
+    if filter_normal and not disease_json:
+        raise ValueError(
+            "--disease JSON file is required when --filter-normal is True. "
+            "Generate it with: cellxgene-harvester resolve-disease normal"
+        )
+    if filter_normal and not hsapdv_json:
+        raise ValueError(
+            "--hsapdv JSON file is required when --filter-normal is True. "
+            "Generate it with: cellxgene-harvester resolve-hsapdv --min-age N"
         )
 
     # ------------------------------------------------------------------
@@ -261,7 +220,7 @@ def run_silhouette(
     if filter_normal:
         logger.info("\n=== Applying Filters ===")
 
-        # 1. Tissue filter — UBERON obo_id precision
+        # 1. Tissue filter - UBERON obo_ids
         logger.info("\n[1/3] Tissue filter")
         if 'tissue_ontology_term_id' not in adata.obs.columns:
             raise ValueError(
@@ -269,19 +228,17 @@ def run_silhouette(
                 "This column is required for UBERON-based tissue filtering. "
                 "Ensure the h5ad file originates from CellxGene."
             )
-        obo_ids      = load_uberon_obo_ids(uberon_json)
+        obo_ids      = load_obo_ids(uberon_json, "UBERON")
         tissue_mask  = adata.obs['tissue_ontology_term_id'].isin(obo_ids)
         n_before     = adata.n_obs
         adata        = adata[tissue_mask].copy()
-        logger.info(f"  Tissue filter (UBERON IDs): {n_before:,} → {adata.n_obs:,} cells "
+        logger.info(f"  Tissue filter (UBERON IDs): {n_before:,} -> {adata.n_obs:,} cells "
                     f"({n_before - adata.n_obs:,} removed)")
 
         if adata.n_obs == 0:
-            present_ids = adata.obs['tissue_ontology_term_id'].value_counts().head(10) \
-                if n_before > 0 else pd.Series()
             logger.warning("  WARNING: 0 cells remain after tissue filter.")
 
-        # 2. Disease filter — PATO:0000461 only
+        # 2. Disease filter - disease obo_ids
         logger.info("\n[2/3] Disease filter")
         if 'disease_ontology_term_id' not in adata.obs.columns:
             raise ValueError(
@@ -289,15 +246,16 @@ def run_silhouette(
                 "This column is required for disease filtering. "
                 "Ensure the h5ad file originates from CellxGene."
             )
-        disease_mask = adata.obs['disease_ontology_term_id'] == 'PATO:0000461'
+        disease_ids  = load_obo_ids(disease_json, "disease")
+        disease_mask = adata.obs['disease_ontology_term_id'].isin(disease_ids)
         n_before     = adata.n_obs
         adata        = adata[disease_mask].copy()
-        logger.info(f"  Disease filter (PATO:0000461): {n_before:,} → {adata.n_obs:,} cells "
+        logger.info(f"  Disease filter (ontology IDs): {n_before:,} -> {adata.n_obs:,} cells "
                     f"({n_before - adata.n_obs:,} removed)")
 
-        # 3. Age filter — development_stage text parsing
+        # 3. Age filter - HsapDv ontology IDs
         logger.info("\n[3/3] Age filter")
-        adata = filter_adult_cells(adata, min_age)
+        adata = filter_by_age(adata, hsapdv_json)
 
     logger.info(f"\nCells after filtering: {adata.n_obs:,}")
 
@@ -377,7 +335,8 @@ def run_silhouette(
                 "disease":           disease,
                 "filter_normal":     filter_normal,
                 "uberon_json":       uberon_json,
-                "min_age":           min_age,
+                "disease_json":      disease_json,
+                "hsapdv_json":       hsapdv_json,
             }
         }
         with open(annotation_json, "w") as f:
@@ -399,7 +358,8 @@ def run_silhouette(
             "disease":           disease,
             "filter_normal":     filter_normal,
             "uberon_json":       uberon_json,
-            "min_age":           min_age,
+            "disease_json":      disease_json,
+            "hsapdv_json":       hsapdv_json,
         }])
         dataset_summary_df.to_csv(dataset_summary_csv, index=False)
         logger.info(f"Saved dataset summary to {dataset_summary_csv}")

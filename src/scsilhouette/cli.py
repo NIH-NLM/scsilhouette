@@ -32,20 +32,18 @@ def compute_silhouette_command(
     gene_list_path: Optional[Path] = typer.Option(None, help="Path to gene list"),
     metric: str = typer.Option("euclidean", help="Distance metric for silhouette"),
     filter_normal: bool = typer.Option(False, "--filter-normal/--no-filter-normal",
-                                       help="Filter to normal adult cells only (requires --uberon)."),
+                                       help="Filter to normal adult cells only"),
     uberon: Optional[Path] = typer.Option(
-        None,
-        "--uberon",
-        help=(
-            "Path to UBERON JSON from cellxgene-harvester resolve-uberon. "
-            "Required when --filter-normal is True. "
-            "Drives tissue (tissue_ontology_term_id) and disease (PATO:0000461) filtering."
-        ),
+        None, "--uberon",
+        help="UBERON JSON from cellxgene-harvester resolve-uberon. Required when --filter-normal."
     ),
-    min_age: int = typer.Option(
-        15,
-        "--min-age",
-        help="Minimum donor age in years for adult cell filtering (default 15).",
+    disease_json: Optional[Path] = typer.Option(
+        None, "--disease",
+        help="Disease JSON from cellxgene-harvester resolve-disease. Required when --filter-normal."
+    ),
+    hsapdv: Optional[Path] = typer.Option(
+        None, "--hsapdv",
+        help="HsapDv JSON from cellxgene-harvester resolve-hsapdv --min-age N. Required when --filter-normal."
     ),
     save_scores: bool = typer.Option(True, help="Save per-cell silhouette scores"),
     save_cluster_summary: bool = typer.Option(True, help="Save cluster summary statistics"),
@@ -54,10 +52,11 @@ def compute_silhouette_command(
     """
     Compute silhouette scores for single-cell clusters.
 
-    When --filter-normal is set (requires --uberon):
-      1. Tissue  — tissue_ontology_term_id matched against UBERON obo_ids
-      2. Disease — disease_ontology_term_id == PATO:0000461 (normal)
-      3. Age     — development_stage parsed, keeps cells >= --min-age years
+    When --filter-normal is set, all three JSON files are required:
+      1. Tissue  — tissue_ontology_term_id   IN UBERON obo_ids  (--uberon)
+      2. Disease — disease_ontology_term_id  IN disease obo_ids (--disease)
+      3. Age     — development_stage_ontology_term_id IN HsapDv obo_ids (--hsapdv)
+                   Age threshold is encoded in the JSON at resolve time.
 
     Silhouette scores are computed on the filtered cell set only.
     Outputs are written to outputs_{organ}_{first_author}_{year}/.
@@ -70,9 +69,10 @@ def compute_silhouette_command(
             --organ kidney \\
             --first-author Lake \\
             --year 2023 \\
-            --filter-normal True \\
+            --filter-normal \\
             --uberon data/uberon_kidney.json \\
-            --min-age 15
+            --disease data/disease_normal.json \\
+            --hsapdv data/hsapdv_adult_15.json
     """
     logger.info("=" * 80)
     logger.info("Silhouette Score Analysis Pipeline")
@@ -82,9 +82,10 @@ def compute_silhouette_command(
     logger.info(f"Cluster header: {cluster_header}")
     logger.info(f"Embedding     : {embedding_key}")
     logger.info(f"Filter normal : {'yes' if filter_normal else 'no'}")
-    if uberon:
+    if filter_normal:
         logger.info(f"UBERON JSON   : {uberon}")
-        logger.info(f"Min age       : {min_age}")
+        logger.info(f"Disease JSON  : {disease_json}")
+        logger.info(f"HsapDv JSON   : {hsapdv}")
     logger.info("=" * 80)
 
     compute.run_silhouette(
@@ -100,8 +101,9 @@ def compute_silhouette_command(
         gene_list_path=str(gene_list_path) if gene_list_path else None,
         metric=metric,
         filter_normal=filter_normal,
-        uberon_json=str(uberon) if uberon else None,
-        min_age=min_age,
+        uberon_json=str(uberon)      if uberon      else None,
+        disease_json=str(disease_json) if disease_json else None,
+        hsapdv_json=str(hsapdv)      if hsapdv      else None,
         save_scores=save_scores,
         save_cluster_summary=save_cluster_summary,
         save_annotation=save_annotation,
