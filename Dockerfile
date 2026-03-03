@@ -36,7 +36,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
         scanpy==1.9.6 \
         anndata==0.9.2 \
         plotly==5.22.0 \
-        kaleido \
+        kaleido==0.2.1 \
         matplotlib==3.8.0 \
         typer \
         mygene && \
