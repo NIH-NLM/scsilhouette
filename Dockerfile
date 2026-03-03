@@ -44,5 +44,4 @@ RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
 
 ENV PYTHONPATH="/app/scsilhouette/src"
 
-ENTRYPOINT ["scsilhouette"]
-CMD ["--help"]
+CMD ["scsilhouette", "--help"]
