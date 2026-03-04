@@ -5,7 +5,7 @@ LABEL maintainer="nih-nlm"
 USER root:root
 
 RUN apt-get update && \
-    apt-get install -y git procps && \
+    apt-get install -y git procps chromium && \
     apt-get install -y --no-install-recommends build-essential gcc g++ gfortran && \
     apt-get clean
 
