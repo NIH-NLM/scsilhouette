@@ -25,12 +25,23 @@ def plot_silhouette_summary(
     silhouette_score_path: str,
     silhouette_score_col: str,
     cluster_header: str,
+    organ: str,
+    first_author: str,
+    year: str,
+    embedding: str = "",
     fscore_path: str = None,
     sort_by: str = "median",
     output_dir: str = None,
+    doi: str = "",
+    collection_name: str = "",
+    dataset_title: str = "",
+    journal: str = "",
+    collection_url: str = "",
+    explorer_url: str = "",
+    h5ad_url: str = "",
 ):
     """Generate silhouette summary boxplot with optional F-scores"""
-    
+
     # File prefix pattern: outputs_{organ}_{author}_{year}/{cluster_header}_
     prefix = f"{output_dir}/{cluster_header}"
     logger.info(f"output prefix for files is {prefix}")
@@ -92,7 +103,7 @@ def plot_silhouette_summary(
                 marker_color="lightblue",
                 line_color="blue",
                 boxmean=True,
-                showlegend=(i == 0), # show legend for first item only
+                showlegend=(i == 0),
                 legendgroup="silhouette",
                 yaxis="y1",
                 offsetgroup="silhouette",
@@ -120,7 +131,7 @@ def plot_silhouette_summary(
             )
         )
 
-    # Cluster size annotations - horizontal text just below y=1
+    # Cluster size annotations
     annotations = []
     for _, row in grouped.iterrows():
         annotations.append(
@@ -137,11 +148,11 @@ def plot_silhouette_summary(
             )
         )
 
-    # Add summary statistics above legend
+    # Summary statistics annotation
     summary_text = f"Median of Silhouette medians: {median_of_medians:.3f}"
     if median_of_fscores is not None:
         summary_text += f"<br>Median of F-scores: {median_of_fscores:.3f}"
-    
+
     annotations.append(
         dict(
             x=0.98,
@@ -204,11 +215,11 @@ def plot_silhouette_summary(
     )
 
     # Output paths
-    svg_path = f"{prefix}_silhouette_fscore_summary.svg"
+    svg_path  = f"{prefix}_silhouette_fscore_summary.svg"
     html_path = f"{prefix}_silhouette_fscore_summary.html"
-    csv_path = f"{prefix}_silhouette_fscore_summary.csv"
+    csv_path  = f"{prefix}_silhouette_fscore_summary.csv"
 
-    # Write HTML
+    # HTML — always save
     pio.write_html(
         fig,
         html_path,
@@ -224,19 +235,44 @@ def plot_silhouette_summary(
             "displaylogo": False,
         },
     )
-
-    # Save SVG
-    fig.write_image(svg_path)
-
-    # Save summary table
-    grouped.to_csv(csv_path, index=False)
-
     logger.info(f"Saved HTML: {html_path}")
-    logger.info(f"Saved SVG: {svg_path}")
+
+    # SVG — best-effort, requires chromium
+    try:
+        fig.write_image(svg_path)
+        logger.info(f"Saved SVG: {svg_path}")
+    except Exception as e:
+        logger.warning(f"SVG export failed (kaleido/chromium): {e} — skipping SVG")
+
+    # Cluster-level summary table
+    grouped.to_csv(csv_path, index=False)
     logger.info(f"Saved CSV: {csv_path}")
-    logger.info(f"Summary - Median of Medians: {median_of_medians:.3f}")
-    if median_of_fscores:
-        logger.info(f"Summary - Median of F-scores: {median_of_fscores:.3f}")
+
+    # Dataset summary — complete provenance + QC metrics
+    dataset_summary_path = f"{prefix}_dataset_summary.csv"
+    pd.DataFrame([{
+        "organ":                          organ,
+        "first_author":                   first_author,
+        "year":                           year,
+        "doi":                            doi,
+        "collection_name":                collection_name,
+        "dataset_title":                  dataset_title,
+        "journal":                        journal,
+        "collection_url":                 collection_url,
+        "explorer_url":                   explorer_url,
+        "h5ad_url":                       h5ad_url,
+        "cluster_header":                 cluster_header,
+        "embedding":                      embedding,
+        "n_cells":                        int(df.shape[0]),
+        "n_clusters":                     int(grouped.shape[0]),
+        "median_of_medians_silhouette":   float(median_of_medians),
+        "median_of_means_silhouette":     float(grouped["mean"].median()),
+        "median_of_stds_silhouette":      float(grouped["std"].median()),
+        "median_fscore":                  float(median_of_fscores) if median_of_fscores is not None else None,
+        "mean_fscore":                    float(grouped["f_score"].mean()) if has_fscore else None,
+        "n_nsforest_clusters":            int(grouped["f_score"].notna().sum()) if has_fscore else 0,
+    }]).to_csv(dataset_summary_path, index=False)
+    logger.info(f"Saved dataset summary: {dataset_summary_path}")
 
 
 def plot_dotplot(
@@ -249,18 +285,16 @@ def plot_dotplot(
     output_dir: str,
 ):
     """Generate embedding dotplot colored by cluster"""
-    
+
     import scanpy as sc
-    
+
     logger.info("Loading data...")
     adata = sc.read_h5ad(h5ad_path)
-    
-    # Always auto-construct output directory
+
     prefix = f"{output_dir}/{cluster_header}"
     logger.info(f"output prefix for files is {prefix}")
-
     os.makedirs(output_dir, exist_ok=True)
-    
+
     # Get embedding coordinates
     embedding = adata.obsm[embedding_key]
     df_plot = pd.DataFrame({
@@ -268,7 +302,7 @@ def plot_dotplot(
         'y': embedding[:, 1],
         cluster_header: adata.obs[cluster_header]
     })
-    
+
     logger.info("Creating plotly scatter plot...")
     fig = px.scatter(
         df_plot,
@@ -279,18 +313,28 @@ def plot_dotplot(
         width=1200,
         height=800
     )
-    
+
     fig.update_layout(
         xaxis_title=f"{embedding_key}_1",
         yaxis_title=f"{embedding_key}_2"
     )
-    
-    # Output with standard naming pattern
+
     output_prefix = f"{prefix}_dotplot_{embedding_key}"
-    fig.write_html(f"{output_prefix}.html")
-    fig.write_image(f"{output_prefix}.svg")
-    
-    logger.info(f"Saved: {output_prefix}.html, {output_prefix}.svg")
+
+    # HTML — always save
+    try:
+        fig.write_html(f"{output_prefix}.html")
+        logger.info(f"Saved HTML: {output_prefix}.html")
+    except Exception as e:
+        logger.warning(f"HTML export failed: {e}")
+
+    # SVG — best-effort, requires chromium
+    try:
+        fig.write_image(f"{output_prefix}.svg")
+        logger.info(f"Saved SVG: {output_prefix}.svg")
+    except Exception as e:
+        logger.warning(f"SVG export failed (kaleido/chromium): {e} — skipping SVG")
+
 
 def plot_distribution(
     cluster_summary_path: str,
@@ -301,14 +345,12 @@ def plot_distribution(
     output_dir: str,
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
-    
+
     logger.info("Loading cluster summary...")
     df = pd.read_csv(cluster_summary_path)
-    
-    # Always auto-construct output directory
+
     prefix = f"{output_dir}/{cluster_header}"
     logger.info(f"output prefix for files is {prefix}")
-
     os.makedirs(output_dir, exist_ok=True)
 
     df['count_log10'] = np.log10(df['count'].replace(0, np.nan))
@@ -338,26 +380,33 @@ def plot_distribution(
 
     fig_log.update_layout(
         title="Cluster Cell Count (log10) vs Silhouette",
-        width=1800,  # Match viz-summary
-        height=900,  # Match viz-summary
-        margin=dict(l=80, r=100, t=80, b=150),  # More bottom margin for angled labels
+        width=1800,
+        height=900,
+        margin=dict(l=80, r=100, t=80, b=150),
         xaxis=dict(
             title=cluster_header,
-            tickangle=-45,  # 45 degree angle like viz-summary
+            tickangle=-45,
             tickfont=dict(size=10)
         )
     )
-
     fig_log.update_yaxes(title_text="log10(Cell Count)", secondary_y=False)
     fig_log.update_yaxes(title_text="Silhouette Score", secondary_y=True)
 
     output_prefix_log = f"{prefix}_distribution_log10"
+
+    # HTML — always save
     try:
         fig_log.write_html(f"{output_prefix_log}.html")
-        fig_log.write_image(f"{output_prefix_log}.svg")
-        logger.info(f"Saved: {output_prefix_log}.html, {output_prefix_log}.svg")
+        logger.info(f"Saved HTML: {output_prefix_log}.html")
     except Exception as e:
-        logger.warning(f"Export log10 failed: {e}")
+        logger.warning(f"HTML log10 export failed: {e}")
+
+    # SVG — best-effort
+    try:
+        fig_log.write_image(f"{output_prefix_log}.svg")
+        logger.info(f"Saved SVG: {output_prefix_log}.svg")
+    except Exception as e:
+        logger.warning(f"SVG log10 export failed (kaleido/chromium): {e} — skipping SVG")
 
     # Plot 2: raw count + silhouette
     logger.info("Generating raw count distribution...")
@@ -384,24 +433,30 @@ def plot_distribution(
 
     fig_raw.update_layout(
         title="Cluster Cell Count (raw) vs Silhouette",
-        width=1800,  # Match viz-summary
-        height=900,  # Match viz-summary
-        margin=dict(l=80, r=100, t=80, b=150),  # More bottom margin for angled labels
+        width=1800,
+        height=900,
+        margin=dict(l=80, r=100, t=80, b=150),
         xaxis=dict(
             title=cluster_header,
-            tickangle=-45,  # 45 degree angle like viz-summary
+            tickangle=-45,
             tickfont=dict(size=10)
         )
     )
-
     fig_raw.update_yaxes(title_text="Cell Count", secondary_y=False)
     fig_raw.update_yaxes(title_text="Silhouette Score", secondary_y=True)
 
     output_prefix_raw = f"{prefix}_distribution_raw"
+
+    # HTML — always save
     try:
         fig_raw.write_html(f"{output_prefix_raw}.html")
-        fig_raw.write_image(f"{output_prefix_raw}.svg")
-        logger.info(f"Saved: {output_prefix_raw}.html, {output_prefix_raw}.svg")
+        logger.info(f"Saved HTML: {output_prefix_raw}.html")
     except Exception as e:
-        logger.warning(f"Export raw failed: {e}")
+        logger.warning(f"HTML raw export failed: {e}")
 
+    # SVG — best-effort
+    try:
+        fig_raw.write_image(f"{output_prefix_raw}.svg")
+        logger.info(f"Saved SVG: {output_prefix_raw}.svg")
+    except Exception as e:
+        logger.warning(f"SVG raw export failed (kaleido/chromium): {e} — skipping SVG")

@@ -118,10 +118,18 @@ def viz_summary_command(
     organ: str = typer.Option(..., help="Organ/tissue"),
     first_author: str = typer.Option(..., help="First author"),
     year: str = typer.Option(..., help="Publication year"),
+    embedding: str = typer.Option("", help="Embedding key used for silhouette"),
     fscore_path: Optional[Path] = typer.Option(None, help="Path to NSForest results with F-scores"),
     sort_by: str = typer.Option("median", help="Sort by mean|median|std"),
-):
-    """Generate silhouette summary visualization with F-scores"""
+    doi: str = typer.Option("", help="Dataset DOI"),
+    collection_name: str = typer.Option("", help="CellxGene collection name"),
+    dataset_title: str = typer.Option("", help="Dataset title"),
+    journal: str = typer.Option("", help="Journal name"),
+    collection_url: str = typer.Option("", help="CellxGene collection URL"),
+    explorer_url: str = typer.Option("", help="CellxGene explorer URL"),
+    h5ad_url: str = typer.Option("", help="h5ad download URL"),
+    ):
+    """Generate silhouette summary visualization with F-scores and dataset summary"""
 
     output_dir = f"outputs_{organ}_{first_author}_{year}"
     os.makedirs(output_dir, exist_ok=True)
@@ -130,8 +138,19 @@ def viz_summary_command(
         silhouette_score_path=str(silhouette_score_path),
         silhouette_score_col=silhouette_score_col,
         cluster_header=cluster_header,
+        organ=organ,
+        first_author=first_author,
+        year=year,
+        embedding=embedding,
         fscore_path=str(fscore_path) if fscore_path else None,
         sort_by=sort_by,
+        doi=doi,
+        collection_name=collection_name,
+        dataset_title=dataset_title,
+        journal=journal,
+        collection_url=collection_url,
+        explorer_url=explorer_url,
+        h5ad_url=h5ad_url,
         output_dir=output_dir,
     )
 
