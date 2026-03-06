@@ -197,7 +197,7 @@ def run_silhouette(
 
     output_dir = f"outputs_{organ}_{first_author}_{year}"
     os.makedirs(output_dir, exist_ok=True)
-    prefix = f"{output_dir}/{cluster_header}"
+    prefix = f"{output_dir}/{cluster_header.replace(' ','_')}"
     logger.info(f"Output prefix: {prefix}")
 
     # ------------------------------------------------------------------

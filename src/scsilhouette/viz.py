@@ -42,8 +42,8 @@ def plot_silhouette_summary(
 ):
     """Generate silhouette summary boxplot with optional F-scores"""
 
-    # File prefix pattern: outputs_{organ}_{author}_{year}/{cluster_header}_
-    prefix = f"{output_dir}/{cluster_header}"
+    # File prefix pattern: outputs_{organ}_{author}_{year}/{cluster_header.replace(' ','_')}_
+    prefix = f"{output_dir}/{cluster_header}.replace(' ','_')"
     logger.info(f"output prefix for files is {prefix}")
 
     logger.info("Loading silhouette scores...")
@@ -291,7 +291,7 @@ def plot_dotplot(
     logger.info("Loading data...")
     adata = sc.read_h5ad(h5ad_path)
 
-    prefix = f"{output_dir}/{cluster_header}"
+    prefix = f"{output_dir}/{cluster_header.replace(' ','_')}"
     logger.info(f"output prefix for files is {prefix}")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -349,7 +349,7 @@ def plot_distribution(
     logger.info("Loading cluster summary...")
     df = pd.read_csv(cluster_summary_path)
 
-    prefix = f"{output_dir}/{cluster_header}"
+    prefix = f"{output_dir}/{cluster_header.replace(' ','_')}"
     logger.info(f"output prefix for files is {prefix}")
     os.makedirs(output_dir, exist_ok=True)
 
