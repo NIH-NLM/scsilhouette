@@ -43,7 +43,7 @@ def plot_silhouette_summary(
     """Generate silhouette summary boxplot with optional F-scores"""
 
     # File prefix pattern: outputs_{organ}_{author}_{year}/{cluster_header.replace(' ','_')}_
-    prefix = f"{output_dir}/{cluster_header}.replace(' ','_')"
+    prefix = f"{output_dir}/{cluster_header.replace(' ','_')}"
     logger.info(f"output prefix for files is {prefix}")
 
     logger.info("Loading silhouette scores...")
