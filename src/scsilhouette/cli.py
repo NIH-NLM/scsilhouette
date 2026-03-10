@@ -7,7 +7,6 @@ and generating visualizations.
 # src/scsilhouette/cli.py
 
 import typer
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -131,9 +130,6 @@ def viz_summary_command(
     ):
     """Generate silhouette summary visualization with F-scores and dataset summary"""
 
-    output_dir = f"outputs_{organ}_{first_author}_{year}"
-    os.makedirs(output_dir, exist_ok=True)
-
     viz.plot_silhouette_summary(
         silhouette_score_path=str(silhouette_score_path),
         silhouette_score_col=silhouette_score_col,
@@ -151,7 +147,6 @@ def viz_summary_command(
         collection_url=collection_url,
         explorer_url=explorer_url,
         h5ad_url=h5ad_url,
-        output_dir=output_dir,
     )
 
 
@@ -166,8 +161,6 @@ def viz_dotplot_command(
 ):
     """Generate UMAP/embedding dotplot colored by cluster"""
 
-    output_dir = f"outputs_{organ}_{first_author}_{year}"
-
     viz.plot_dotplot(
         h5ad_path=str(h5ad_path),
         cluster_header=cluster_header,
@@ -175,7 +168,6 @@ def viz_dotplot_command(
         organ=organ,
         first_author=first_author,
         year=year,
-        output_dir=output_dir,
     )
 
 
@@ -189,15 +181,12 @@ def viz_distribution_command(
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
 
-    output_dir = f"outputs_{organ}_{first_author}_{year}"
-
     viz.plot_distribution(
         cluster_summary_path=str(cluster_summary_path),
         cluster_header=cluster_header,
         organ=organ,
         first_author=first_author,
         year=year,
-        output_dir=output_dir,
     )
 
 

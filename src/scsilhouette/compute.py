@@ -6,7 +6,6 @@ from single-cell data.
 """
 # src/scsilhouette/compute.py
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -195,9 +194,8 @@ def run_silhouette(
     adata = sc.read(h5ad_path)
     logger.info(f"Loaded AnnData: {adata.n_obs:,} cells x {adata.n_vars:,} genes")
 
-    output_dir = f"outputs_{organ}_{first_author}_{year}"
-    os.makedirs(output_dir, exist_ok=True)
-    prefix = f"{output_dir}/{cluster_header.replace(' ','_')}"
+    cluster_header_safe = cluster_header.replace(' ', '_')
+    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
     logger.info(f"Output prefix: {prefix}")
 
     # ------------------------------------------------------------------

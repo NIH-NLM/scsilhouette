@@ -6,9 +6,7 @@ distributions, and summary statistics.
 """
 # src/scsilhouette/viz.py
 
-import os
 from pathlib import Path
-from typing import Optional, List
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -31,7 +29,6 @@ def plot_silhouette_summary(
     embedding_key: str = "",
     fscore_path: str = None,
     sort_by: str = "median",
-    output_dir: str = None,
     doi: str = "",
     collection_name: str = "",
     dataset_title: str = "",
@@ -42,8 +39,8 @@ def plot_silhouette_summary(
 ):
     """Generate silhouette summary boxplot with optional F-scores"""
 
-    # File prefix pattern: outputs_{organ}_{author}_{year}/{cluster_header.replace(' ','_')}_
-    prefix = f"{output_dir}/{cluster_header.replace(' ','_')}"
+    cluster_header_safe = cluster_header.replace(' ', '_')
+    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
     logger.info(f"output prefix for files is {prefix}")
 
     logger.info("Loading silhouette scores...")
@@ -193,7 +190,12 @@ def plot_silhouette_summary(
             showgrid=False,
         ),
         title=dict(
-            text="Silhouette Summary with F-score",
+            text=(
+                f"Silhouette Summary with F-score<br>"
+                f"<sup>{first_author} {year}</sup><br>"
+                f"<sup>Anatomical subunit: {organ}</sup><br>"
+                f"<sup>Cluster header: {cluster_header}    Embedding: {embedding_key}</sup>"
+            ),
             x=0.5,
             xanchor="center",
             font=dict(size=14)
@@ -201,7 +203,7 @@ def plot_silhouette_summary(
         width=1800,
         height=900,
         annotations=annotations,
-        margin=dict(t=100, b=100, l=80, r=80),
+        margin=dict(t=160, b=100, l=80, r=80),
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -249,7 +251,7 @@ def plot_silhouette_summary(
     logger.info(f"Saved CSV: {csv_path}")
 
     # Dataset summary — complete provenance + QC metrics
-    dataset_summary_path = f"{prefix}_dataset_summary.csv"
+    dataset_summary_path = f"{prefix}_{embedding_key}_dataset_summary.csv"
     pd.DataFrame([{
         "organ":                          organ,
         "first_author":                   first_author,
@@ -282,7 +284,6 @@ def plot_dotplot(
     organ: str,
     first_author: str,
     year: str,
-    output_dir: str,
 ):
     """Generate embedding dotplot colored by cluster"""
 
@@ -291,9 +292,9 @@ def plot_dotplot(
     logger.info("Loading data...")
     adata = sc.read_h5ad(h5ad_path)
 
-    prefix = f"{output_dir}/{cluster_header.replace(' ','_')}"
+    cluster_header_safe = cluster_header.replace(' ', '_')
+    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
     logger.info(f"output prefix for files is {prefix}")
-    os.makedirs(output_dir, exist_ok=True)
 
     # Get embedding coordinates
     embedding = adata.obsm[embedding_key]
@@ -342,16 +343,15 @@ def plot_distribution(
     organ: str,
     first_author: str,
     year: str,
-    output_dir: str,
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
 
     logger.info("Loading cluster summary...")
     df = pd.read_csv(cluster_summary_path)
 
-    prefix = f"{output_dir}/{cluster_header.replace(' ','_')}"
+    cluster_header_safe = cluster_header.replace(' ', '_')
+    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
     logger.info(f"output prefix for files is {prefix}")
-    os.makedirs(output_dir, exist_ok=True)
 
     df['count_log10'] = np.log10(df['count'].replace(0, np.nan))
 
