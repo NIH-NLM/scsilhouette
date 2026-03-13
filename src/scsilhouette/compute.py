@@ -261,6 +261,7 @@ def run_silhouette(
     # Get cluster labels and embedding AFTER filtering
     # ------------------------------------------------------------------
     labels   = adata.obs[cluster_header].copy()
+    print(list(adata.obsm.keys()))
     adata_use = adata.obsm[embedding_key]
 
     # Optional PCA
