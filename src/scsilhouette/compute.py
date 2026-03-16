@@ -344,3 +344,100 @@ def run_silhouette(
 
     logger.info("Silhouette analysis complete!")
     return adata
+
+
+def compute_summary_stats(
+    cluster_summary_path: str,
+    nsforest_results_path: str = None,
+    cluster_header: str = "",
+    organ: str = "",
+    first_author: str = "",
+    year: str = "",
+    embedding: str = "",
+    doi: str = "",
+    collection_name: str = "",
+    dataset_title: str = "",
+    journal: str = "",
+    collection_url: str = "",
+    explorer_url: str = "",
+    h5ad_url: str = "",
+):
+    """
+    Compute dataset-level summary statistics from cluster summaries.
+    
+    Computes median-of-medians and other aggregate metrics across all clusters.
+    Optionally includes NSForest F-score statistics if results are available.
+    """
+    cluster_summary = pd.read_csv(cluster_summary_path)
+
+    # Compute median of medians (primary QC metric)
+    median_of_medians = cluster_summary['median_silhouette'].median()
+    mean_of_medians = cluster_summary['median_silhouette'].mean()
+    std_of_medians = cluster_summary['median_silhouette'].std()
+
+    # Count clusters by quality
+    high_quality = (cluster_summary['median_silhouette'] >= 0.5).sum()
+    medium_quality = ((cluster_summary['median_silhouette'] >= 0.25) &
+                      (cluster_summary['median_silhouette'] < 0.5)).sum()
+    low_quality = (cluster_summary['median_silhouette'] < 0.25).sum()
+
+    # Read NSForest results if available
+    median_fscore = None
+    mean_fscore = None
+    if nsforest_results_path and nsforest_results_path != "NO_FILE":
+        try:
+            nsforest_df = pd.read_csv(nsforest_results_path)
+            median_fscore = nsforest_df['f_score'].median()
+            mean_fscore = nsforest_df['f_score'].mean()
+        except Exception:
+            logger.warning(f"Could not read NSForest results: {nsforest_results_path}")
+
+    # Build prefix
+    cluster_header_safe = cluster_header.replace(" ", "_")
+    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
+
+    # Create summary dataframe
+    summary = pd.DataFrame({
+        'dataset': [f"{organ}_{first_author}_{year}"],
+        'organ': [organ],
+        'first_author': [first_author],
+        'year': [year],
+        'cluster_header': [cluster_header],
+        'embedding': [embedding],
+        'doi': [doi],
+        'collection_name': [collection_name],
+        'dataset_title': [dataset_title],
+        'journal': [journal],
+        'collection_url': [collection_url],
+        'explorer_url': [explorer_url],
+        'h5ad_url': [h5ad_url],
+        'n_clusters': [len(cluster_summary)],
+        'n_cells': [int(cluster_summary['count'].sum())],
+        'median_silhouette': [median_of_medians],
+        'mean_silhouette': [mean_of_medians],
+        'std_silhouette': [std_of_medians],
+        'high_quality_clusters': [int(high_quality)],
+        'medium_quality_clusters': [int(medium_quality)],
+        'low_quality_clusters': [int(low_quality)],
+        'median_fscore': [median_fscore],
+        'mean_fscore': [mean_fscore],
+    })
+
+    # Save
+    output_path = f"{prefix}_dataset_summary.csv"
+    summary.to_csv(output_path, index=False)
+
+    # Log
+    logger.info(f"Dataset Summary: {organ}_{first_author}_{year}")
+    logger.info(f"  Clusters: {len(cluster_summary)} total")
+    logger.info(f"  Cells: {int(cluster_summary['count'].sum())}")
+    logger.info(f"  Median of median silhouette scores: {median_of_medians:.3f}")
+    logger.info(f"    High quality (>= 0.5): {int(high_quality)}")
+    logger.info(f"    Medium quality (0.25-0.5): {int(medium_quality)}")
+    logger.info(f"    Low quality (< 0.25): {int(low_quality)}")
+    if median_fscore is not None:
+        logger.info(f"  Median F-score: {median_fscore:.3f}")
+        logger.info(f"  Mean F-score: {mean_fscore:.3f}")
+
+    return output_path
+

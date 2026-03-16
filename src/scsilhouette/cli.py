@@ -16,6 +16,42 @@ from .logging_config import setup_logger
 logger = setup_logger()
 app = typer.Typer(add_completion=False)
 
+@app.command("compute-summary-stats")
+def compute_summary_stats_command(
+    cluster_summary: Path = typer.Option(..., help="Path to cluster summary CSV"),
+    nsforest_results: Optional[Path] = typer.Option(None, help="Path to NSForest results CSV"),
+    cluster_header: str = typer.Option(..., help="Column name for clusters"),
+    organ: str = typer.Option(..., help="Organ/tissue"),
+    first_author: str = typer.Option(..., help="First author"),
+    year: str = typer.Option(..., help="Publication year"),
+    embedding_key: str = typer.Option("", help="Embedding key"),
+    doi: str = typer.Option("", help="Dataset DOI"),
+    collection_name: str = typer.Option("", help="CellxGene collection name"),
+    dataset_title: str = typer.Option("", help="Dataset title"),
+    journal: str = typer.Option("", help="Journal name"),
+    collection_url: str = typer.Option("", help="CellxGene collection URL"),
+    explorer_url: str = typer.Option("", help="CellxGene explorer URL"),
+    h5ad_url: str = typer.Option("", help="h5ad download URL"),
+):
+    """Compute dataset-level summary statistics from cluster summaries."""
+
+    compute.compute_summary_stats(
+        cluster_summary_path=str(cluster_summary),
+        nsforest_results_path=str(nsforest_results) if nsforest_results else None,
+        cluster_header=cluster_header,
+        organ=organ,
+        first_author=first_author,
+        year=year,
+        embedding=embedding_key,
+        doi=doi,
+        collection_name=collection_name,
+        dataset_title=dataset_title,
+        journal=journal,
+        collection_url=collection_url,
+        explorer_url=explorer_url,
+        h5ad_url=h5ad_url,
+    )
+
 
 @app.command("compute-silhouette")
 def compute_silhouette_command(
