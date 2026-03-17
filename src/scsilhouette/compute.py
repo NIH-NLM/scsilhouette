@@ -349,25 +349,36 @@ def run_silhouette(
 def compute_summary_stats(
     cluster_summary_path: str,
     nsforest_results_path: str = None,
+    metadata_path: str = None,
     cluster_header: str = "",
     organ: str = "",
     first_author: str = "",
     year: str = "",
     embedding: str = "",
-    doi: str = "",
-    collection_name: str = "",
-    dataset_title: str = "",
-    journal: str = "",
-    collection_url: str = "",
-    explorer_url: str = "",
-    h5ad_url: str = "",
 ):
     """
     Compute dataset-level summary statistics from cluster summaries.
-    
+
     Computes median-of-medians and other aggregate metrics across all clusters.
     Optionally includes NSForest F-score statistics if results are available.
+
+    When metadata_path is provided, reads a JSON file containing all dataset
+    fields from the cellxgene-harvester CSV. All metadata fields are included
+    as columns in the output summary CSV. JSON fields override individual params.
     """
+    # Load metadata from JSON if provided
+    metadata = {}
+    if metadata_path:
+        with open(metadata_path) as f:
+            metadata = json.load(f)
+
+    # JSON fields override individual params
+    organ = metadata.get('organ', organ)
+    first_author = metadata.get('first_author', first_author)
+    year = metadata.get('year', year)
+    cluster_header = metadata.get('author_cell_type', cluster_header)
+    embedding = metadata.get('embedding', embedding)
+
     cluster_summary = pd.read_csv(cluster_summary_path)
 
     # Compute median of medians (primary QC metric)
@@ -396,32 +407,29 @@ def compute_summary_stats(
     cluster_header_safe = cluster_header.replace(" ", "_")
     prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
 
-    # Create summary dataframe
-    summary = pd.DataFrame({
-        'dataset': [f"{organ}_{first_author}_{year}"],
-        'organ': [organ],
-        'first_author': [first_author],
-        'year': [year],
-        'cluster_header': [cluster_header],
-        'embedding': [embedding],
-        'doi': [doi],
-        'collection_name': [collection_name],
-        'dataset_title': [dataset_title],
-        'journal': [journal],
-        'collection_url': [collection_url],
-        'explorer_url': [explorer_url],
-        'h5ad_url': [h5ad_url],
-        'n_clusters': [len(cluster_summary)],
-        'n_cells': [int(cluster_summary['count'].sum())],
-        'median_silhouette': [median_of_medians],
-        'mean_silhouette': [mean_of_medians],
-        'std_silhouette': [std_of_medians],
-        'high_quality_clusters': [int(high_quality)],
-        'medium_quality_clusters': [int(medium_quality)],
-        'low_quality_clusters': [int(low_quality)],
-        'median_fscore': [median_fscore],
-        'mean_fscore': [mean_fscore],
+    # Start with ALL metadata fields (harvester columns), then add computed fields
+    summary_data = dict(metadata)
+    summary_data.update({
+        'dataset': f"{organ}_{first_author}_{year}",
+        'organ': organ,
+        'first_author': first_author,
+        'year': year,
+        'cluster_header': cluster_header,
+        'embedding': embedding,
+        'n_clusters': len(cluster_summary),
+        'n_cells': int(cluster_summary['count'].sum()),
+        'median_silhouette': median_of_medians,
+        'mean_silhouette': mean_of_medians,
+        'std_silhouette': std_of_medians,
+        'high_quality_clusters': int(high_quality),
+        'medium_quality_clusters': int(medium_quality),
+        'low_quality_clusters': int(low_quality),
+        'median_fscore': median_fscore,
+        'mean_fscore': mean_fscore,
     })
+
+    # Convert to single-row DataFrame
+    summary = pd.DataFrame({k: [v] for k, v in summary_data.items()})
 
     # Save
     output_path = f"{prefix}_dataset_summary.csv"
@@ -438,6 +446,7 @@ def compute_summary_stats(
     if median_fscore is not None:
         logger.info(f"  Median F-score: {median_fscore:.3f}")
         logger.info(f"  Mean F-score: {mean_fscore:.3f}")
+    logger.info(f"  Columns in output: {len(summary.columns)}")
 
     return output_path
 
