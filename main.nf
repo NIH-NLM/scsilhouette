@@ -83,8 +83,9 @@ workflow {
 
             // Derive file names from naming convention
             // CloudOS results land under results_dir/results/ — auto-append if needed
+            // CloudOS publishDir puts files under results_dir/results/
             def base = params.results_dir.toString().replaceAll('/+$', '')
-            def results_path = base.endsWith('/results') ? base : "${base}/results"
+            def results_path = "${base}/results"
             def act = (row.author_cell_type ?: '').replace(' ', '_')
             def prefix = "${params.organ}_${row.first_author}_${row.year}_${act}"
             def cluster_summary = file("${results_path}/${prefix}_cluster_summary.csv")
