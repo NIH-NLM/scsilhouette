@@ -35,7 +35,7 @@ process regenerate_summary_process {
     tuple val(meta), path(cluster_summary), path(nsforest_results)
 
     output:
-    path("*_dataset_summary.csv")
+    path("*_master_dataset_summary.csv")
 
     script:
     def metadata_json = groovy.json.JsonOutput.toJson(meta)
