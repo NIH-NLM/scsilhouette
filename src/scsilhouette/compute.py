@@ -403,9 +403,11 @@ def compute_summary_stats(
         except Exception:
             logger.warning(f"Could not read NSForest results: {nsforest_results_path}")
 
-    # Build prefix
+    # Build prefix with dataset_version_id suffix for uniqueness
     cluster_header_safe = cluster_header.replace(" ", "_")
-    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
+    vid = metadata.get('dataset_version_id', '')
+    vid_suffix = f"_{vid[-6:]}" if vid and len(vid) >= 6 else ""
+    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}{vid_suffix}"
 
     # Start with ALL metadata fields (harvester columns), then add computed fields
     summary_data = dict(metadata)
