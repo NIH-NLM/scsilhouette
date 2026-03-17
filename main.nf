@@ -82,12 +82,17 @@ workflow {
             meta.organ = params.organ
 
             // Derive file names from naming convention
+            // CloudOS results land under results_dir/results/ — auto-append if needed
+            def base = params.results_dir.toString().replaceAll('/+$', '')
+            def results_path = base.endsWith('/results') ? base : "${base}/results"
             def act = (row.author_cell_type ?: '').replace(' ', '_')
             def prefix = "${params.organ}_${row.first_author}_${row.year}_${act}"
-            def cluster_summary = file("${params.results_dir}/${prefix}_cluster_summary.csv")
-            def nsforest_results = file("${params.results_dir}/${prefix}_results.csv")
+            def cluster_summary = file("${results_path}/${prefix}_cluster_summary.csv")
+            def nsforest_results = file("${results_path}/${prefix}_results.csv")
 
             log.info "Dataset: ${row.first_author} ${row.year} → ${prefix}"
+            log.info "  cluster_summary: ${results_path}/${prefix}_cluster_summary.csv"
+            log.info "  nsforest_results: ${results_path}/${prefix}_results.csv"
 
             tuple(meta, cluster_summary, nsforest_results)
         }
