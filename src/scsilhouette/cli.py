@@ -49,6 +49,7 @@ def compute_silhouette_command(
     organ: str = typer.Option(..., help="Organ/tissue (e.g., kidney)"),
     first_author: str = typer.Option(..., help="First author (e.g., Lake)"),
     year: str = typer.Option(..., help="Publication year (e.g., 2023)"),
+    dataset_version_id: str = typer.Option(...,help="Dataset version id unique"),
     organism: str = typer.Option("human", help="Organism"),
     disease: str = typer.Option("normal", help="Disease state label for annotation output"),
     use_binary_genes: bool = typer.Option(False, help="Use binary genes from NSForest"),
@@ -92,6 +93,7 @@ def compute_silhouette_command(
             --organ kidney \\
             --first-author Lake \\
             --year 2023 \\
+            --dataset_version_id abcdefgh123456789 \\
             --filter-normal \\
             --uberon data/uberon_kidney.json \\
             --disease data/disease_normal.json \\
@@ -118,6 +120,7 @@ def compute_silhouette_command(
         organ=organ,
         first_author=first_author,
         year=year,
+        dataset_version_id=dataset_version_id,
         organism=organism,
         disease=disease,
         use_binary_genes=use_binary_genes,
@@ -141,6 +144,7 @@ def viz_summary_command(
     organ: str = typer.Option(..., help="Organ/tissue"),
     first_author: str = typer.Option(..., help="First author"),
     year: str = typer.Option(..., help="Publication year"),
+    dataset_version_id: str = typer.Option(..., help="dataset version id"),
     embedding_key: str = typer.Option("", help="Embedding key used for silhouette"),
     fscore_path: Optional[Path] = typer.Option(None, help="Path to NSForest results with F-scores"),
     sort_by: str = typer.Option("median", help="Sort by mean|median|std"),
@@ -161,6 +165,7 @@ def viz_summary_command(
         organ=organ,
         first_author=first_author,
         year=year,
+        dataset_version_id=dataset_version_id,
         embedding_key=embedding_key,
         fscore_path=str(fscore_path) if fscore_path else None,
         sort_by=sort_by,
@@ -182,6 +187,7 @@ def viz_dotplot_command(
     organ: str = typer.Option(..., help="Organ/tissue"),
     first_author: str = typer.Option(..., help="First author"),
     year: str = typer.Option(..., help="Publication year"),
+    dataset_version_id: str = typer.Option(..., help="dataset_version_id"),
 ):
     """Generate UMAP/embedding dotplot colored by cluster"""
 
@@ -192,6 +198,7 @@ def viz_dotplot_command(
         organ=organ,
         first_author=first_author,
         year=year,
+        dataset_version_id,
     )
 
 
@@ -202,6 +209,7 @@ def viz_distribution_command(
     organ: str = typer.Option(..., help="Organ/tissue"),
     first_author: str = typer.Option(..., help="First author"),
     year: str = typer.Option(..., help="Publication year"),
+    dataset_version_id: str = typer.Option(..., help="dataset_version_id"),
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
 
@@ -211,6 +219,7 @@ def viz_distribution_command(
         organ=organ,
         first_author=first_author,
         year=year,
+        dataset_version_id=dataset_version_id,
     )
 
 

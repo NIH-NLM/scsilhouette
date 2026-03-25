@@ -21,9 +21,27 @@ logger = setup_logger()
 
 
 # =============================================================================
+# build the prefix to include vid which will ensure unique dataset in a collection
+# =============================================================================
+def get_output_prefix(organ, first_author, year, cluster_header, embedding="", dataset_version_id=""):
+    """
+    Build standardized output filename prefix.
+
+    Includes embedding key and last 6 digits of dataset_version_id
+    for uniqueness when the same author/year has multiple datasets.
+
+    Example:
+        get_output_prefix("kidney", "Lake", "2023", "subclass.full", "X_umap", "abc123def456")
+        # → "kidney_Lake_2023_subclass.full_X_umap_ef456"
+    """
+    cluster_header_safe = cluster_header.replace(" ", "_")
+    embedding_safe = embedding.replace(" ", "_") if embedding else "unknown"
+    vid_suffix = f"_{dataset_version_id[-6:]}" if dataset_version_id and len(dataset_version_id) >= 6 else ""
+    return f"{organ}_{first_author}_{year}_{cluster_header_safe}_{embedding_safe}{vid_suffix}"
+
+# =============================================================================
 # Ontology JSON loaders (mirror cellxgene-harvester helpers)
 # =============================================================================
-
 def load_obo_ids(json_path: str, label: str) -> set:
     """Load obo_ids from a resolve_uberon / resolve_disease JSON file."""
     with open(json_path) as f:
@@ -96,6 +114,7 @@ def run_silhouette(
     organ: str,
     first_author: str,
     year: str,
+    dataset_version_id: str,
     organism: str = "human",
     disease: str = "normal",
     use_binary_genes: bool = False,
@@ -194,8 +213,8 @@ def run_silhouette(
     adata = sc.read(h5ad_path)
     logger.info(f"Loaded AnnData: {adata.n_obs:,} cells x {adata.n_vars:,} genes")
 
-    cluster_header_safe = cluster_header.replace(' ', '_')
-    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
+    from .utils import get_output_prefix
+    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
     logger.info(f"Output prefix: {prefix}")
 
     # ------------------------------------------------------------------
@@ -406,21 +425,20 @@ def compute_summary_stats(
     # Build prefix with embedding and dataset_version_id suffix for uniqueness
     cluster_header_safe = cluster_header.replace(" ", "_")
     embedding_safe = embedding.replace(" ", "_") if embedding else "unknown"
-    vid = metadata.get('dataset_version_id', '')
-    vid_suffix = f"_{vid[-6:]}" if vid and len(vid) >= 6 else ""
-    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}_{embedding_safe}{vid_suffix}"
 
+    from .utils import get_output_prefix
+    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
+    
     # Start with ALL metadata fields (harvester columns), then add computed fields
     summary_data = dict(metadata)
     summary_data.update({
-        'dataset': f"{organ}_{first_author}_{year}",
+        'dataset': f"{organ}_{first_author}_{year}_{vid_suffix}",
         'organ': organ,
         'first_author': first_author,
         'year': year,
         'cluster_header': cluster_header,
         'embedding': embedding,
         'n_clusters': len(cluster_summary),
-        'n_cells': int(cluster_summary['count'].sum()),
         'median_silhouette': median_of_medians,
         'mean_silhouette': mean_of_medians,
         'std_silhouette': std_of_medians,

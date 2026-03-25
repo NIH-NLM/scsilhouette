@@ -26,6 +26,7 @@ def plot_silhouette_summary(
     organ: str,
     first_author: str,
     year: str,
+    dataset_version_id: str,
     embedding_key: str = "",
     fscore_path: str = None,
     sort_by: str = "median",
@@ -39,8 +40,8 @@ def plot_silhouette_summary(
 ):
     """Generate silhouette summary boxplot with optional F-scores"""
 
-    cluster_header_safe = cluster_header.replace(' ', '_')
-    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
+    from .utils import get_output_prefix
+    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
     logger.info(f"output prefix for files is {prefix}")
 
     logger.info("Loading silhouette scores...")
@@ -284,6 +285,7 @@ def plot_dotplot(
     organ: str,
     first_author: str,
     year: str,
+    dataset_version_id,
 ):
     """Generate embedding dotplot colored by cluster"""
 
@@ -292,8 +294,8 @@ def plot_dotplot(
     logger.info("Loading data...")
     adata = sc.read_h5ad(h5ad_path)
 
-    cluster_header_safe = cluster_header.replace(' ', '_')
-    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
+    from .utils import get_output_prefix
+    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
     logger.info(f"output prefix for files is {prefix}")
 
     # Get embedding coordinates
@@ -343,14 +345,15 @@ def plot_distribution(
     organ: str,
     first_author: str,
     year: str,
+    dataset_version_id, str,
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
 
     logger.info("Loading cluster summary...")
     df = pd.read_csv(cluster_summary_path)
 
-    cluster_header_safe = cluster_header.replace(' ', '_')
-    prefix = f"{organ}_{first_author}_{year}_{cluster_header_safe}"
+    from .utils import get_output_prefix
+    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
     logger.info(f"output prefix for files is {prefix}")
 
     df['count_log10'] = np.log10(df['count'].replace(0, np.nan))
