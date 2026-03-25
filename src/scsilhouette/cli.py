@@ -198,7 +198,7 @@ def viz_dotplot_command(
         organ=organ,
         first_author=first_author,
         year=year,
-        dataset_version_id,
+        dataset_version_id=dataset_version_id,
     )
 
 
