@@ -214,7 +214,7 @@ def run_silhouette(
     logger.info(f"Loaded AnnData: {adata.n_obs:,} cells x {adata.n_vars:,} genes")
 
     from .utils import get_output_prefix
-    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
+    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding_key, dataset_version_id)
     logger.info(f"Output prefix: {prefix}")
 
     # ------------------------------------------------------------------
