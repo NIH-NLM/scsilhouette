@@ -41,7 +41,7 @@ def plot_silhouette_summary(
     """Generate silhouette summary boxplot with optional F-scores"""
 
     from .utils import get_output_prefix
-    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
+    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding_key, dataset_version_id)
     logger.info(f"output prefix for files is {prefix}")
 
     logger.info("Loading silhouette scores...")
@@ -295,7 +295,7 @@ def plot_dotplot(
     adata = sc.read_h5ad(h5ad_path)
 
     from .utils import get_output_prefix
-    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
+    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding_key, dataset_version_id)
     logger.info(f"output prefix for files is {prefix}")
 
     # Get embedding coordinates
@@ -345,6 +345,7 @@ def plot_distribution(
     organ: str,
     first_author: str,
     year: str,
+    embedding: str,
     dataset_version_id, str,
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""

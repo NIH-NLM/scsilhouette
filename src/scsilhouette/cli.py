@@ -209,6 +209,7 @@ def viz_distribution_command(
     organ: str = typer.Option(..., help="Organ/tissue"),
     first_author: str = typer.Option(..., help="First author"),
     year: str = typer.Option(..., help="Publication year"),
+    embedding: str = typer.Option(...,help="embedding"),
     dataset_version_id: str = typer.Option(..., help="dataset_version_id"),
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
