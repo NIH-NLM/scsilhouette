@@ -25,6 +25,7 @@ def plot_silhouette_summary(
     cluster_header: str,
     organ: str,
     first_author: str,
+    journal: str,
     year: str,
     dataset_version_id: str,
     embedding_key: str = "",
@@ -41,7 +42,7 @@ def plot_silhouette_summary(
     """Generate silhouette summary boxplot with optional F-scores"""
 
     from .utils import get_output_prefix
-    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding_key, dataset_version_id)
+    prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding_key, dataset_version_id)
     logger.info(f"output prefix for files is {prefix}")
 
     logger.info("Loading silhouette scores...")
@@ -256,6 +257,7 @@ def plot_silhouette_summary(
     pd.DataFrame([{
         "organ":                          organ,
         "first_author":                   first_author,
+        "journal":                        journal,
         "year":                           year,
         "doi":                            doi,
         "collection_name":                collection_name,
@@ -284,6 +286,7 @@ def plot_dotplot(
     embedding_key: str,
     organ: str,
     first_author: str,
+    journal: str,
     year: str,
     dataset_version_id,
 ):
@@ -295,7 +298,7 @@ def plot_dotplot(
     adata = sc.read_h5ad(h5ad_path)
 
     from .utils import get_output_prefix
-    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding_key, dataset_version_id)
+    prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding_key, dataset_version_id)
     logger.info(f"output prefix for files is {prefix}")
 
     # Get embedding coordinates
@@ -344,6 +347,7 @@ def plot_distribution(
     cluster_header: str,
     organ: str,
     first_author: str,
+    journal: str,
     year: str,
     embedding: str,
     dataset_version_id, str,
@@ -354,7 +358,7 @@ def plot_distribution(
     df = pd.read_csv(cluster_summary_path)
 
     from .utils import get_output_prefix
-    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
+    prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding, dataset_version_id)
     logger.info(f"output prefix for files is {prefix}")
 
     df['count_log10'] = np.log10(df['count'].replace(0, np.nan))

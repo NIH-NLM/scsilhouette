@@ -4,13 +4,12 @@ import pandas as pd
 from mygene import MyGeneInfo
 from typing import List, Tuple
 
-def get_output_prefix(organ, first_author, year, cluster_header, embedding="", dataset_version_id=""):
+def get_output_prefix(organ, first_author, journal, year, cluster_header, embedding="", dataset_version_id=""):
     """Build standardized output filename prefix with embedding and vid suffix for uniqueness."""
     cluster_header_safe = cluster_header.replace(" ", "_")
     embedding_safe = embedding.replace(" ", "_") if embedding else "unknown"
     vid_suffix = f"_{dataset_version_id[-6:]}" if dataset_version_id and len(dataset_version_id) >= 6 else ""
-    return f"{organ}_{first_author}_{year}_{cluster_header_safe}_{embedding_safe}{vid_suffix}"
-
+    return f"{organ}_{first_author}_{journal}_{year}_{cluster_header_safe}_{embedding_safe}_{vid_suffix}"
 
 def map_gene_symbols_to_ensembl(symbols: List[str]) -> Tuple[List[str], pd.DataFrame]:
     mg = MyGeneInfo()

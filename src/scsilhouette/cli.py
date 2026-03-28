@@ -24,6 +24,7 @@ def compute_summary_stats_command(
     cluster_header: str = typer.Option("", help="Column name for clusters"),
     organ: str = typer.Option("", help="Organ/tissue"),
     first_author: str = typer.Option("", help="First author"),
+    journal: str = typer.Option("", help="Journal"),
     year: str = typer.Option("", help="Publication year"),
     embedding_key: str = typer.Option("", help="Embedding key"),
 ):
@@ -36,6 +37,7 @@ def compute_summary_stats_command(
         cluster_header=cluster_header,
         organ=organ,
         first_author=first_author,
+        journal=journal,
         year=year,
         embedding=embedding_key,
     )
@@ -48,6 +50,7 @@ def compute_silhouette_command(
     embedding_key: str = typer.Option(..., help="Embedding key (e.g., X_umap)"),
     organ: str = typer.Option(..., help="Organ/tissue (e.g., kidney)"),
     first_author: str = typer.Option(..., help="First author (e.g., Lake)"),
+    journal: str = typer.Option(..., help="Journal"),
     year: str = typer.Option(..., help="Publication year (e.g., 2023)"),
     dataset_version_id: str = typer.Option(...,help="Dataset version id unique"),
     organism: str = typer.Option("human", help="Organism"),
@@ -85,18 +88,19 @@ def compute_silhouette_command(
     Silhouette scores are computed on the filtered cell set only.
     Outputs are written to outputs_{organ}_{first_author}_{year}/.
 
-    Example:
-        scsilhouette compute-silhouette \\
-            --h5ad-path data/dataset.h5ad \\
-            --cluster-header cell_type \\
-            --embedding-key X_umap \\
-            --organ kidney \\
-            --first-author Lake \\
-            --year 2023 \\
-            --dataset_version_id abcdefgh123456789 \\
-            --filter-normal \\
-            --uberon data/uberon_kidney.json \\
-            --disease data/disease_normal.json \\
+    Example
+        scsilhouette compute-silhouette \
+            --h5ad-path data/dataset.h5ad \
+            --cluster-header cell_type \
+            --embedding-key X_umap \
+            --organ kidney \
+            --first-author Lake \
+            --journal Cell \
+            --year 2023 \
+            --dataset_version_id abcdefgh123456789 \
+            --filter-normal \
+            --uberon data/uberon_kidney.json \
+            --disease data/disease_normal.json \
             --hsapdv data/hsapdv_adult_15.json
     """
     logger.info("=" * 80)
@@ -119,6 +123,7 @@ def compute_silhouette_command(
         embedding_key=embedding_key,
         organ=organ,
         first_author=first_author,
+        journal=journal,
         year=year,
         dataset_version_id=dataset_version_id,
         organism=organism,
@@ -143,6 +148,7 @@ def viz_summary_command(
     cluster_header: str = typer.Option(..., help="Column name for clusters"),
     organ: str = typer.Option(..., help="Organ/tissue"),
     first_author: str = typer.Option(..., help="First author"),
+    journal: str = typer.Option(..., help="Journal"),
     year: str = typer.Option(..., help="Publication year"),
     dataset_version_id: str = typer.Option(..., help="dataset version id"),
     embedding_key: str = typer.Option("", help="Embedding key used for silhouette"),
@@ -164,6 +170,7 @@ def viz_summary_command(
         cluster_header=cluster_header,
         organ=organ,
         first_author=first_author,
+        journal=journal,
         year=year,
         dataset_version_id=dataset_version_id,
         embedding_key=embedding_key,
@@ -186,6 +193,7 @@ def viz_dotplot_command(
     cluster_header: str = typer.Option(..., help="Column name for clusters"),
     organ: str = typer.Option(..., help="Organ/tissue"),
     first_author: str = typer.Option(..., help="First author"),
+    journal: str = typer.Option(..., help="Journal"),
     year: str = typer.Option(..., help="Publication year"),
     dataset_version_id: str = typer.Option(..., help="dataset_version_id"),
 ):
@@ -197,6 +205,7 @@ def viz_dotplot_command(
         embedding_key=embedding_key,
         organ=organ,
         first_author=first_author,
+        journal=journal,
         year=year,
         dataset_version_id=dataset_version_id,
     )
@@ -208,6 +217,7 @@ def viz_distribution_command(
     cluster_header: str = typer.Option(..., help="Column name for clusters"),
     organ: str = typer.Option(..., help="Organ/tissue"),
     first_author: str = typer.Option(..., help="First author"),
+    journal: str = typer.Option(..., help="Journal"),
     year: str = typer.Option(..., help="Publication year"),
     embedding: str = typer.Option(...,help="embedding"),
     dataset_version_id: str = typer.Option(..., help="dataset_version_id"),
@@ -219,6 +229,7 @@ def viz_distribution_command(
         cluster_header=cluster_header,
         organ=organ,
         first_author=first_author,
+        journal=journal,
         year=year,
         dataset_version_id=dataset_version_id,
     )

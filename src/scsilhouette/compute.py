@@ -23,7 +23,7 @@ logger = setup_logger()
 # =============================================================================
 # build the prefix to include vid which will ensure unique dataset in a collection
 # =============================================================================
-def get_output_prefix(organ, first_author, year, cluster_header, embedding="", dataset_version_id=""):
+def get_output_prefix(organ, first_author, journal, year, cluster_header, embedding="", dataset_version_id=""):
     """
     Build standardized output filename prefix.
 
@@ -31,7 +31,7 @@ def get_output_prefix(organ, first_author, year, cluster_header, embedding="", d
     for uniqueness when the same author/year has multiple datasets.
 
     Example:
-        get_output_prefix("kidney", "Lake", "2023", "subclass.full", "X_umap", "abc123def456")
+        get_output_prefix("kidney", "Lake", "Cell", "2023", "subclass.full", "X_umap", "abc123def456")
         # → "kidney_Lake_2023_subclass.full_X_umap_ef456"
     """
     cluster_header_safe = cluster_header.replace(" ", "_")
@@ -113,6 +113,7 @@ def run_silhouette(
     embedding_key: str,
     organ: str,
     first_author: str,
+    journal: str,
     year: str,
     dataset_version_id: str,
     organism: str = "human",
@@ -144,6 +145,8 @@ def run_silhouette(
         Organ/tissue (e.g., kidney)
     first_author : str
         First author (e.g., Lake)
+    journal: str
+        Journal (e.g., Cell)
     year : str
         Publication year (e.g., 2023)
     organism : str
@@ -214,7 +217,7 @@ def run_silhouette(
     logger.info(f"Loaded AnnData: {adata.n_obs:,} cells x {adata.n_vars:,} genes")
 
     from .utils import get_output_prefix
-    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding_key, dataset_version_id)
+    prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding_key, dataset_version_id)
     logger.info(f"Output prefix: {prefix}")
 
     # ------------------------------------------------------------------
@@ -372,6 +375,7 @@ def compute_summary_stats(
     cluster_header: str = "",
     organ: str = "",
     first_author: str = "",
+    journal: str = "",
     year: str = "",
     embedding: str = "",
 ):
@@ -394,6 +398,7 @@ def compute_summary_stats(
     # JSON fields override individual params
     organ = metadata.get('organ', organ)
     first_author = metadata.get('first_author', first_author)
+    journal = metadata.get('journal', journal)
     year = metadata.get('year', year)
     cluster_header = metadata.get('author_cell_type', cluster_header)
     embedding = metadata.get('embedding', embedding)
@@ -427,7 +432,7 @@ def compute_summary_stats(
     embedding_safe = embedding.replace(" ", "_") if embedding else "unknown"
 
     from .utils import get_output_prefix
-    prefix = get_output_prefix(organ, first_author, year, cluster_header, embedding, dataset_version_id)
+    prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding, dataset_version_id)
     
     # Start with ALL metadata fields (harvester columns), then add computed fields
     summary_data = dict(metadata)
@@ -435,6 +440,7 @@ def compute_summary_stats(
         'dataset': f"{organ}_{first_author}_{year}_{vid_suffix}",
         'organ': organ,
         'first_author': first_author,
+        'journal': journal,
         'year': year,
         'cluster_header': cluster_header,
         'embedding': embedding,
