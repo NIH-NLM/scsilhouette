@@ -34,7 +34,6 @@ def plot_silhouette_summary(
     doi: str = "",
     collection_name: str = "",
     dataset_title: str = "",
-    journal: str = "",
     collection_url: str = "",
     explorer_url: str = "",
     h5ad_url: str = "",
