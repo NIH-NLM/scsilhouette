@@ -261,7 +261,6 @@ def plot_silhouette_summary(
         "doi":                            doi,
         "collection_name":                collection_name,
         "dataset_title":                  dataset_title,
-        "journal":                        journal,
         "collection_url":                 collection_url,
         "explorer_url":                   explorer_url,
         "h5ad_url":                       h5ad_url,
