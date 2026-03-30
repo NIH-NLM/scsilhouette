@@ -225,6 +225,7 @@ def viz_distribution_command(
     viz.plot_distribution(
         cluster_summary_path=str(cluster_summary_path),
         cluster_header=cluster_header,
+        embedding=embedding,
         organ=organ,
         first_author=first_author,
         journal=journal,

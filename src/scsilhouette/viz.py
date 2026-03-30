@@ -348,7 +348,7 @@ def plot_distribution(
     journal: str,
     year: str,
     embedding: str,
-    dataset_version_id, str,
+    dataset_version_id: str,
 ):
     """Generate distribution plots of cluster sizes vs silhouette"""
 
