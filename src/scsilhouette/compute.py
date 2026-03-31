@@ -381,6 +381,7 @@ def compute_summary_stats(
     year = metadata.get('year', year)
     cluster_header = metadata.get('author_cell_type', cluster_header)
     embedding = metadata.get('embedding', embedding)
+    dataset_version_id = metadata.get('dataset_version_id', '')
 
     cluster_summary = pd.read_csv(cluster_summary_path)
 
@@ -407,15 +408,12 @@ def compute_summary_stats(
             logger.warning(f"Could not read NSForest results: {nsforest_results_path}")
 
     # Build prefix with embedding and dataset_version_id suffix for uniqueness
-    cluster_header_safe = cluster_header.replace(" ", "_")
-    embedding_safe = embedding.replace(" ", "_") if embedding else "unknown"
-
     prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding, dataset_version_id)
     
     # Start with ALL metadata fields (harvester columns), then add computed fields
     summary_data = dict(metadata)
     summary_data.update({
-        'dataset': f"{organ}_{first_author}_{year}_{vid_suffix}",
+        'dataset': f"{prefix}",
         'organ': organ,
         'first_author': first_author,
         'journal': journal,
