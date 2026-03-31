@@ -14,30 +14,10 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 
-from .utils import map_gene_symbols_to_ensembl
+from .utils import map_gene_symbols_to_ensembl, get_output_prefix
 from .logging_config import setup_logger
 
 logger = setup_logger()
-
-
-# =============================================================================
-# build the prefix to include vid which will ensure unique dataset in a collection
-# =============================================================================
-def get_output_prefix(organ, first_author, journal, year, cluster_header, embedding="", dataset_version_id=""):
-    """
-    Build standardized output filename prefix.
-
-    Includes embedding key and last 6 digits of dataset_version_id
-    for uniqueness when the same author/year has multiple datasets.
-
-    Example:
-        get_output_prefix("kidney", "Lake", "Cell", "2023", "subclass.full", "X_umap", "abc123def456")
-        # → "kidney_Lake_2023_subclass.full_X_umap_ef456"
-    """
-    cluster_header_safe = cluster_header.replace(" ", "_")
-    embedding_safe = embedding.replace(" ", "_") if embedding else "unknown"
-    vid_suffix = f"_{dataset_version_id[-6:]}" if dataset_version_id and len(dataset_version_id) >= 6 else ""
-    return f"{organ}_{first_author}_{year}_{cluster_header_safe}_{embedding_safe}{vid_suffix}"
 
 # =============================================================================
 # Ontology JSON loaders (mirror cellxgene-harvester helpers)
@@ -216,7 +196,6 @@ def run_silhouette(
     adata = sc.read(h5ad_path)
     logger.info(f"Loaded AnnData: {adata.n_obs:,} cells x {adata.n_vars:,} genes")
 
-    from .utils import get_output_prefix
     prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding_key, dataset_version_id)
     logger.info(f"Output prefix: {prefix}")
 
@@ -431,7 +410,6 @@ def compute_summary_stats(
     cluster_header_safe = cluster_header.replace(" ", "_")
     embedding_safe = embedding.replace(" ", "_") if embedding else "unknown"
 
-    from .utils import get_output_prefix
     prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding, dataset_version_id)
     
     # Start with ALL metadata fields (harvester columns), then add computed fields
