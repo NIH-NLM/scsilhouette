@@ -184,10 +184,10 @@ def viz_summary_command(
     )
 
 
-@app.command("viz-dotplot")
-def viz_dotplot_command(
+@app.command("viz-2D-projection")
+def viz_2D_projection_command(
     h5ad_path: Path = typer.Option(..., help="Path to input .h5ad file"),
-    embedding_key: str = typer.Option(..., help="Embedding key (X_umap, X_tsne)"),
+    embedding_key: str = typer.Option(..., help="Embedding key (X_umap, X_tsne, etc.)"),
     cluster_header: str = typer.Option(..., help="Column name for clusters"),
     organ: str = typer.Option(..., help="Organ/tissue"),
     first_author: str = typer.Option(..., help="First author"),
@@ -195,9 +195,9 @@ def viz_dotplot_command(
     year: str = typer.Option(..., help="Publication year"),
     dataset_version_id: str = typer.Option(..., help="dataset_version_id"),
 ):
-    """Generate UMAP/embedding dotplot colored by cluster"""
+    """Generate embedding 2D projection colored by cluster"""
 
-    viz.plot_dotplot(
+    viz.plot_2D_projection(
         h5ad_path=str(h5ad_path),
         cluster_header=cluster_header,
         embedding_key=embedding_key,

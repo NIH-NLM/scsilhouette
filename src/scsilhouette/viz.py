@@ -278,7 +278,7 @@ def plot_silhouette_summary(
     logger.info(f"Saved dataset summary: {dataset_summary_path}")
 
 
-def plot_dotplot(
+def plot_2D_projection(
     h5ad_path: str,
     cluster_header: str,
     embedding_key: str,
@@ -288,7 +288,7 @@ def plot_dotplot(
     year: str,
     dataset_version_id,
 ):
-    """Generate embedding dotplot colored by cluster"""
+    """Generate embedding 2D_projection colored by cluster"""
 
     import scanpy as sc
 
@@ -323,7 +323,7 @@ def plot_dotplot(
         yaxis_title=f"{embedding_key}_2"
     )
 
-    output_prefix = f"{prefix}_dotplot_{embedding_key}"
+    output_prefix = f"{prefix}_2D_projection"
 
     # HTML — always save
     try:
