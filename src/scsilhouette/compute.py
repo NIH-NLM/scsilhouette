@@ -424,6 +424,7 @@ def compute_summary_stats(
         'median_silhouette': median_of_medians,
         'mean_silhouette': mean_of_medians,
         'std_silhouette': std_of_medians,
+        'filtered_cell_count': int(cluster_summary['count'].sum()),
         'high_quality_clusters': int(high_quality),
         'medium_quality_clusters': int(medium_quality),
         'low_quality_clusters': int(low_quality),
