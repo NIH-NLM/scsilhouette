@@ -412,6 +412,28 @@ def compute_summary_stats(
     
     # Start with ALL metadata fields (harvester columns), then add computed fields
     summary_data = dict(metadata)
+    
+    # Normalize ontology summary fields: replace commas with pipe separator,
+    # strip numeric commas (122,000 -> 122000). Pipe is bioinformatics standard for
+    # multi-value fields and avoids CSV quoting issues.
+    
+    for _key in ['tissue_ontology_summary',
+                 'assay_ontology_summary',
+                 'cell_type_ontology_summary',
+                 'disease_ontology_summary',
+                 'sex_ontology_summary',
+                 'development_stage_summary']:
+        _val = summary_data.get(_key)
+        
+        if not _val or (isinstance(_val, float) and pd.isna(_val)):
+            summary_data[_key] = 'NA'
+        elif isinstance(_val, str) and _val.strip():
+            _val = _val.replace('; ', ' | ').replace(', ', ' | ')
+            _val = _val.replace(',', '')   # remove numeric commas: 122,000 -> 122000
+            summary_data[_key] = _val
+        else:
+            summary_data[_key] = 'NA'
+
     summary_data.update({
         'dataset': f"{prefix}",
         'organ': organ,
