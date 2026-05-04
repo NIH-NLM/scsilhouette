@@ -262,8 +262,22 @@ def run_silhouette(
     # Get cluster labels and embedding AFTER filtering
     # ------------------------------------------------------------------
     labels   = adata.obs[cluster_header].copy()
-    print(list(adata.obsm.keys()))
-    adata_use = adata.obsm[embedding_key]
+    logger.info(f"Available obsm keys: {list(adata.obsm.keys())}")
+    if embedding_key in adata.obsm:
+        resolved_key = embedding_key
+    elif f'X_{embedding_key}' in adata.obsm:
+        resolved_key = f'X_{embedding_key}'
+    else:
+        matches = [k for k in adata.obsm.keys() if embedding_key in k]
+        if len(matches) == 1:
+            resolved_key = matches[0]
+        elif len(matches) > 1:
+            raise KeyError(f"Ambiguous: {matches}")
+        else:
+            raise KeyError(f"Not found. Available: {list(adata.obsm.keys())}")
+
+    logger.info(f"Embedding resolved: '{embedding_key}' resolves to '{resolved_key}'")
+    adata_use = adata.obsm[resolved_key]
 
     # Optional PCA
     if pca_components is not None:
