@@ -300,7 +300,23 @@ def plot_2D_projection(
     logger.info(f"output prefix for files is {prefix}")
 
     # Get embedding coordinates
-    embedding = adata.obsm[embedding_key]
+    logger.info(f"Available obsm keys: {list(adata.obsm.keys())}")
+    if embedding_key in adata.obsm:
+        resolved_key = embedding_key
+    elif f'X_{embedding_key}' in adata.obsm:
+        resolved_key = f'X_{embedding_key}'
+    else:
+        matches = [k for k in adata.obsm.keys() if embedding_key in k]
+        if len(matches) == 1:
+            resolved_key = matches[0]
+        elif len(matches) > 1:
+            raise KeyError(f"Ambiguous: {matches}")
+        else:
+            raise KeyError(f"Not found. Available: {list(adata.obsm.keys())}")
+        
+    logger.info(f"Embedding resolved: '{embedding_key}' → '{resolved_key}'")
+    embedding = adata.obsm[resolved_key]
+
     df_plot = pd.DataFrame({
         'x': embedding[:, 0],
         'y': embedding[:, 1],
