@@ -307,8 +307,8 @@ def run_silhouette(
     # Save outputs
     # ------------------------------------------------------------------
     if save_scores:
-        silhouette_scores_csv  = f"{prefix}_silhouette_scores.csv"
-        silhouette_scores_json = f"{prefix}_silhouette_scores.json"
+        silhouette_scores_csv  = f"silhouette_scores_{prefix}.csv"
+        silhouette_scores_json = f"silhouette_scores_{prefix}.json"
         adata.obs[[cluster_header, "silhouette_score"]].to_csv(silhouette_scores_csv)
         adata.obs[[cluster_header, "silhouette_score"]].to_json(silhouette_scores_json)
         logger.info(f"Saved silhouette scores to {silhouette_scores_csv}")
@@ -325,14 +325,14 @@ def run_silhouette(
             )
             .reset_index()
         )
-        cluster_summary_csv  = f"{prefix}_cluster_summary.csv"
-        cluster_summary_json = f"{prefix}_cluster_summary.json"
+        cluster_summary_csv  = f"scsilhouette_cluster_summary_{prefix}.csv"
+        cluster_summary_json = f"scsilhouette_cluster_summary_{prefix}.json"
         cluster_summary_df.to_csv(cluster_summary_csv, index=False)
         cluster_summary_df.to_json(cluster_summary_json)
         logger.info(f"Saved cluster summary to {cluster_summary_csv}")
 
     if save_annotation:
-        annotation_json   = f"{prefix}_annotation.json"
+        annotation_json   = f"annotation_{prefix}.json"
         annotation_output = {
             "available_obs_keys":  list(adata.obs.columns),
             "available_obsm_keys": list(adata.obsm.keys()),
@@ -472,7 +472,7 @@ def compute_summary_stats(
     summary = pd.DataFrame({k: [v] for k, v in summary_data.items()})
 
     # Save
-    output_path = f"{prefix}_master_dataset_summary.csv"
+    output_path = f"master_dataset_summary_{prefix}.csv"
     summary.to_csv(output_path, index=False)
 
     # Log

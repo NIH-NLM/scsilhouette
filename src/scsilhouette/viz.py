@@ -218,9 +218,9 @@ def plot_silhouette_summary(
     )
 
     # Output paths
-    svg_path  = f"{prefix}_silhouette_fscore_summary.svg"
-    html_path = f"{prefix}_silhouette_fscore_summary.html"
-    csv_path  = f"{prefix}_silhouette_fscore_summary.csv"
+    svg_path  = f"silhouette_fscore_summary_{prefix}.svg"
+    html_path = f"silhouette_fscore_summary_{prefix}.html"
+    csv_path  = f"silhouette_fscore_summary_{prefix}.csv"
 
     # HTML — always save
     pio.write_html(
@@ -252,7 +252,7 @@ def plot_silhouette_summary(
     logger.info(f"Saved CSV: {csv_path}")
 
     # Dataset summary — complete provenance + QC metrics
-    dataset_summary_path = f"{prefix}_{embedding_key}_dataset_summary.csv"
+    dataset_summary_path = f"dataset_summary_{prefix}.csv"
     pd.DataFrame([{
         "organ":                          organ,
         "first_author":                   first_author,
@@ -339,7 +339,7 @@ def plot_2D_projection(
         yaxis_title=f"{embedding_key}_2"
     )
 
-    output_prefix = f"{prefix}_2D_projection"
+    output_prefix = f"2D_projection_{prefix}"
 
     # HTML — always save
     try:
@@ -414,7 +414,7 @@ def plot_distribution(
     fig_log.update_yaxes(title_text="log10(Cell Count)", secondary_y=False)
     fig_log.update_yaxes(title_text="Silhouette Score", secondary_y=True)
 
-    output_prefix_log = f"{prefix}_distribution_log10"
+    output_prefix_log = f"distribution_log10_{prefix}"
 
     # HTML — always save
     try:
@@ -467,7 +467,7 @@ def plot_distribution(
     fig_raw.update_yaxes(title_text="Cell Count", secondary_y=False)
     fig_raw.update_yaxes(title_text="Silhouette Score", secondary_y=True)
 
-    output_prefix_raw = f"{prefix}_distribution_raw"
+    output_prefix_raw = f"distribution_raw_{prefix}"
 
     # HTML — always save
     try:
