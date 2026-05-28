@@ -65,7 +65,7 @@ def compute_silhouette_command(
         help="UBERON JSON from cellxgene-harvester resolve-uberon. Required when --filter-normal."
     ),
     disease_json: Optional[Path] = typer.Option(
-        None, "--disease",
+        None, "--disease-json",
         help="Disease JSON from cellxgene-harvester resolve-disease. Required when --filter-normal."
     ),
     hsapdv: Optional[Path] = typer.Option(
