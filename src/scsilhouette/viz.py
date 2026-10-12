@@ -278,6 +278,33 @@ def plot_silhouette_summary(
     logger.info(f"Saved dataset summary: {dataset_summary_path}")
 
 
+def cluster_colors(adata, cluster_header):
+    """Return {cluster label: colour} for the 2D projection, one colour for each cluster.
+
+    CellxGene keeps the colours of a cluster column in adata.uns[f"{cluster_header}_colors"],
+    in the order of the categories of that column. When they are there and there is one for each
+    cluster, they are used, so the plot looks like CellxGene. Otherwise the colours are spread
+    around the colour wheel by the golden angle, so that neighbouring clusters differ and no
+    colour is used twice (the plotly default has 10 colours and repeats them).
+    """
+    import colorsys
+
+    column = adata.obs[cluster_header]
+    labels = [str(c) for c in (column.cat.categories if hasattr(column, "cat") else sorted(column.unique()))]
+    given = adata.uns.get(f"{cluster_header}_colors")
+    if given is not None and len(given) == len(labels):
+        logger.info(f"Using the CellxGene colours of '{cluster_header}' ({len(labels)} clusters)")
+        return dict(zip(labels, [str(c) for c in given]))
+    logger.info(f"No CellxGene colours for '{cluster_header}': spreading {len(labels)} colours around the colour wheel")
+    colours = {}
+    for i, label in enumerate(labels):
+        hue = (i * 0.61803398875) % 1.0
+        lightness = (0.45, 0.60, 0.35)[i % 3]
+        r, g, b = colorsys.hls_to_rgb(hue, lightness, 0.75)
+        colours[label] = f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+    return colours
+
+
 def plot_2D_projection(
     h5ad_path: str,
     cluster_header: str,
@@ -320,7 +347,7 @@ def plot_2D_projection(
     df_plot = pd.DataFrame({
         'x': embedding[:, 0],
         'y': embedding[:, 1],
-        cluster_header: adata.obs[cluster_header]
+        cluster_header: adata.obs[cluster_header].astype(str).values
     })
 
     logger.info("Creating plotly scatter plot...")
@@ -329,6 +356,7 @@ def plot_2D_projection(
         x='x',
         y='y',
         color=cluster_header,
+        color_discrete_map=cluster_colors(adata, cluster_header),
         title=f"{embedding_key} colored by {cluster_header}",
         width=1200,
         height=800
