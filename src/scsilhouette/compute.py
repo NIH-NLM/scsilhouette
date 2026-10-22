@@ -10,10 +10,12 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+import anndata
 import numpy as np
 import pandas as pd
 import scanpy as sc
 
+from .exact_silhouette import silhouette_rows
 from .utils import map_gene_symbols_to_ensembl, get_output_prefix
 from .logging_config import setup_logger
 
@@ -193,8 +195,20 @@ def run_silhouette(
     # Load
     # ------------------------------------------------------------------
     logger.info("Loading data...")
-    adata = sc.read(h5ad_path)
-    logger.info(f"Loaded AnnData: {adata.n_obs:,} cells x {adata.n_vars:,} genes")
+    if not filter_normal and not use_binary_genes:
+        # Only obs and the embeddings are used on this path, so the (large) expression
+        # matrix X is never read: open backed, keep obs and obsm in memory, close the file.
+        adata_backed = anndata.read_h5ad(h5ad_path, backed="r")
+        adata = anndata.AnnData(
+            obs=adata_backed.obs.copy(),
+            obsm={k: np.asarray(v) for k, v in adata_backed.obsm.items()},
+        )
+        n_vars_file = adata_backed.n_vars
+        adata_backed.file.close()
+        logger.info(f"Loaded obs and obsm only (X not read): {adata.n_obs:,} cells x {n_vars_file:,} genes in file")
+    else:
+        adata = sc.read(h5ad_path)
+        logger.info(f"Loaded AnnData: {adata.n_obs:,} cells x {adata.n_vars:,} genes")
 
     prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding_key, dataset_version_id)
     logger.info(f"Output prefix: {prefix}")
@@ -303,20 +317,67 @@ def run_silhouette(
     # Assign scores directly — adata is already the filtered subset
     adata.obs["silhouette_score"] = scores
 
+    write_silhouette_outputs(
+        obs=adata.obs,
+        obs_keys=list(adata.obs.columns),
+        obsm_keys=list(adata.obsm.keys()),
+        cluster_header=cluster_header,
+        embedding_key=embedding_key,
+        prefix=prefix,
+        organism=organism,
+        organ=organ,
+        disease=disease,
+        filter_normal=filter_normal,
+        uberon_json=uberon_json,
+        disease_json=disease_json,
+        hsapdv_json=hsapdv_json,
+        save_scores=save_scores,
+        save_cluster_summary=save_cluster_summary,
+        save_annotation=save_annotation,
+    )
+
+    logger.info("Silhouette analysis complete!")
+    return adata
+
+
+def write_silhouette_outputs(
+    obs,
+    obs_keys,
+    obsm_keys,
+    cluster_header,
+    embedding_key,
+    prefix,
+    organism="human",
+    organ="",
+    disease="normal",
+    filter_normal=False,
+    uberon_json=None,
+    disease_json=None,
+    hsapdv_json=None,
+    save_scores=True,
+    save_cluster_summary=True,
+    save_annotation=True,
+):
+    """
+    Write the per-cell scores, the cluster summary and the annotation JSON.
+
+    ``obs`` is a DataFrame indexed by cell with the cluster column and ``silhouette_score``.
+    Shared by run_silhouette and summarize_scores so both write identical files.
+    """
     # ------------------------------------------------------------------
     # Save outputs
     # ------------------------------------------------------------------
     if save_scores:
         silhouette_scores_csv  = f"silhouette_scores_{prefix}.csv"
         silhouette_scores_json = f"silhouette_scores_{prefix}.json"
-        adata.obs[[cluster_header, "silhouette_score"]].to_csv(silhouette_scores_csv)
-        adata.obs[[cluster_header, "silhouette_score"]].to_json(silhouette_scores_json)
+        obs[[cluster_header, "silhouette_score"]].to_csv(silhouette_scores_csv)
+        obs[[cluster_header, "silhouette_score"]].to_json(silhouette_scores_json)
         logger.info(f"Saved silhouette scores to {silhouette_scores_csv}")
 
-    if save_cluster_summary:
+    if save_cluster_summary or save_annotation:
         logger.info("Computing cluster summary statistics...")
         cluster_summary_df = (
-            adata.obs.groupby(cluster_header)
+            obs.groupby(cluster_header)
             .agg(
                 mean_silhouette=("silhouette_score", "mean"),
                 std_silhouette=("silhouette_score", "std"),
@@ -325,6 +386,8 @@ def run_silhouette(
             )
             .reset_index()
         )
+
+    if save_cluster_summary:
         cluster_summary_csv  = f"scsilhouette_cluster_summary_{prefix}.csv"
         cluster_summary_json = f"scsilhouette_cluster_summary_{prefix}.json"
         cluster_summary_df.to_csv(cluster_summary_csv, index=False)
@@ -334,15 +397,15 @@ def run_silhouette(
     if save_annotation:
         annotation_json   = f"annotation_{prefix}.json"
         annotation_output = {
-            "available_obs_keys":  list(adata.obs.columns),
-            "available_obsm_keys": list(adata.obsm.keys()),
+            "available_obs_keys":  list(obs_keys),
+            "available_obsm_keys": list(obsm_keys),
             "cluster_header":      cluster_header,
             "embedding_key":       embedding_key,
             "dataset_summary": {
                 "median_of_medians": float(cluster_summary_df['median_silhouette'].median()),
                 "median_of_means":   float(cluster_summary_df['mean_silhouette'].median()),
                 "median_of_stds":    float(cluster_summary_df['std_silhouette'].median()),
-                "n_cells":           int(adata.n_obs),
+                "n_cells":           int(len(obs)),
                 "n_clusters":        int(cluster_summary_df.shape[0]),
                 "organism":          organism,
                 "organ":             organ,
@@ -357,8 +420,102 @@ def run_silhouette(
             json.dump(annotation_output, f, indent=2)
         logger.info(f"Saved annotation metadata to {annotation_json}")
 
-    logger.info("Silhouette analysis complete!")
-    return adata
+
+def extract_silhouette_inputs(h5ad_path, cluster_header, embedding_key, organ, first_author, journal, year,
+                              dataset_version_id):
+    """
+    Write the small files that silhouette scoring needs, reading only obs and the embedding (not X):
+    the embedding (.npy), the cluster codes (.npy), the cell table (.csv) and an info file (.json)
+    that holds the number of cells. Cells with NaN in the embedding are dropped, as in run_silhouette.
+    """
+    prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding_key, dataset_version_id)
+
+    logger.info(f"Reading obs and obsm only (X is not read): {h5ad_path}")
+    backed = anndata.read_h5ad(h5ad_path, backed="r")
+    obs = backed.obs.copy()
+    obsm_keys = list(backed.obsm.keys())
+    if embedding_key in obsm_keys:
+        resolved = embedding_key
+    elif f"X_{embedding_key}" in obsm_keys:
+        resolved = f"X_{embedding_key}"
+    else:
+        matches = [k for k in obsm_keys if embedding_key in k]
+        if len(matches) != 1:
+            raise KeyError(f"Embedding '{embedding_key}' not found or ambiguous. Available: {obsm_keys}")
+        resolved = matches[0]
+    embedding = np.asarray(backed.obsm[resolved])
+    backed.file.close()
+    logger.info(f"Embedding '{embedding_key}' resolves to '{resolved}': {embedding.shape}")
+
+    if cluster_header not in obs.columns:
+        raise ValueError(f"Cluster column '{cluster_header}' not found in obs: {list(obs.columns)}")
+
+    nan_mask = np.isnan(embedding).any(axis=1)
+    if nan_mask.any():
+        logger.info(f"Dropped {int(nan_mask.sum()):,} cells with NaNs in '{embedding_key}'")
+        obs = obs[~nan_mask]
+        embedding = embedding[~nan_mask]
+
+    from sklearn.preprocessing import LabelEncoder
+    codes = LabelEncoder().fit_transform(obs[cluster_header].to_numpy()).astype(np.int32)
+
+    np.save(f"silhouette_embedding_{prefix}.npy", embedding)
+    np.save(f"silhouette_labels_{prefix}.npy", codes)
+    obs[[cluster_header]].to_csv(f"silhouette_cells_{prefix}.csv")
+    info = {
+        "obs_keys": list(obs.columns),
+        "obsm_keys": obsm_keys,
+        "cluster_header": cluster_header,
+        "embedding_key": embedding_key,
+        "n_cells": int(embedding.shape[0]),
+        "n_clusters": int(codes.max()) + 1,
+    }
+    with open(f"silhouette_info_{prefix}.json", "w") as f:
+        json.dump(info, f, indent=2)
+    logger.info(f"{info['n_cells']:,} cells, {info['n_clusters']} clusters")
+
+
+def score_cells(embedding_npy, labels_npy, start, end, output, metric="euclidean"):
+    """Exact silhouette of the cells start:end against all cells; the scores are written to ``output``."""
+    X = np.load(embedding_npy)
+    y = np.load(labels_npy)
+    logger.info(f"Scoring cells {start:,}-{end:,} of {X.shape[0]:,} (metric: {metric})")
+    scores = silhouette_rows(X, y, start, end, metric=metric)
+    pd.DataFrame({"silhouette_score": scores}).to_csv(output, index=False)
+    logger.info(f"Saved {output}")
+
+
+def summarize_scores(cells_csv, info_json, scores_csv, organ, first_author, journal, year, dataset_version_id,
+                     organism="human", disease="normal", save_scores=True, save_cluster_summary=True,
+                     save_annotation=True):
+    """Write the per-cell scores, cluster summary and annotation from a finished table of scores (one per cell)."""
+    with open(info_json) as f:
+        info = json.load(f)
+    cluster_header = info["cluster_header"]
+    embedding_key = info["embedding_key"]
+    prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding_key, dataset_version_id)
+
+    obs = pd.read_csv(cells_csv, index_col=0, dtype=str)
+    scores = pd.read_csv(scores_csv)["silhouette_score"].to_numpy()
+    if len(scores) != len(obs) or len(obs) != info["n_cells"]:
+        raise ValueError(f"{len(scores)} scores for {len(obs)} cells (expected {info['n_cells']})")
+    obs["silhouette_score"] = scores
+
+    write_silhouette_outputs(
+        obs=obs,
+        obs_keys=info["obs_keys"] + ["silhouette_score"],
+        obsm_keys=info["obsm_keys"],
+        cluster_header=cluster_header,
+        embedding_key=embedding_key,
+        prefix=prefix,
+        organism=organism,
+        organ=organ,
+        disease=disease,
+        filter_normal=False,
+        save_scores=save_scores,
+        save_cluster_summary=save_cluster_summary,
+        save_annotation=save_annotation,
+    )
 
 
 def compute_summary_stats(
