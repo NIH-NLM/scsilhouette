@@ -445,7 +445,12 @@ def extract_silhouette_inputs(h5ad_path, cluster_header, embedding_key, organ, f
         resolved = matches[0]
     embedding = np.asarray(backed.obsm[resolved])
     backed.file.close()
-    logger.info(f"Embedding '{embedding_key}' resolves to '{resolved}': {embedding.shape}")
+    logger.info(f"Embedding '{embedding_key}' resolves to '{resolved}': {embedding.shape}, {embedding.dtype}")
+    if embedding.dtype != np.float32:
+        logger.warning(
+            f"The embedding is {embedding.dtype}, not float32: scores from silhouette-cells can differ from "
+            f"compute-silhouette at about the 10th decimal (see exact_silhouette.py)"
+        )
 
     if cluster_header not in obs.columns:
         raise ValueError(f"Cluster column '{cluster_header}' not found in obs: {list(obs.columns)}")
@@ -469,6 +474,7 @@ def extract_silhouette_inputs(h5ad_path, cluster_header, embedding_key, organ, f
         "embedding_key": embedding_key,
         "n_cells": int(embedding.shape[0]),
         "n_clusters": int(codes.max()) + 1,
+        "embedding_dtype": str(embedding.dtype),     # the scores have this type, as in sklearn
     }
     with open(f"silhouette_info_{prefix}.json", "w") as f:
         json.dump(info, f, indent=2)
@@ -496,7 +502,8 @@ def summarize_scores(cells_csv, info_json, scores_csv, organ, first_author, jour
     prefix = get_output_prefix(organ, first_author, journal, year, cluster_header, embedding_key, dataset_version_id)
 
     obs = pd.read_csv(cells_csv, index_col=0, dtype=str)
-    scores = pd.read_csv(scores_csv)["silhouette_score"].to_numpy()
+    # the scores are read back in the type they were computed in, so the averages match compute-silhouette
+    scores = pd.read_csv(scores_csv)["silhouette_score"].to_numpy(dtype=info.get("embedding_dtype", "float64"))
     if len(scores) != len(obs) or len(obs) != info["n_cells"]:
         raise ValueError(f"{len(scores)} scores for {len(obs)} cells (expected {info['n_cells']})")
     obs["silhouette_score"] = scores

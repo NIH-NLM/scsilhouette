@@ -100,6 +100,38 @@ Filter stages applied in order:
 - `cell_type_cluster_summary.csv` — per-cluster mean / median / std
 - `cell_type_annotation.json` — dataset metadata and filter provenance
 
+### Compute Silhouette Scores in Steps (for very large datasets)
+
+The silhouette of a cell needs its distance to every other cell, so the work grows with the square of
+the number of cells. `compute-silhouette` does it in one process. For millions of cells the same
+computation can be run as separate steps, so that a workflow manager can score ranges of cells as separate
+tasks and decide how many run at once. The package only provides the steps; the splitting and the joining
+belong to the workflow (see `modules/scsilhouette/silhouette_scatter.nf` in sc-nsforest-qc-nf).
+
+```bash
+# 1. read only obs and the embedding (not the expression matrix) and write small files
+scsilhouette silhouette-inputs \
+    --h5ad-path data.h5ad --cluster-header "cell_type" --embedding-key "X_umap" \
+    --organ "kidney" --first-author "Lake" --journal "Cell" --year "2023" --dataset-version-id "abc123"
+#    -> silhouette_embedding_*.npy, silhouette_labels_*.npy, silhouette_cells_*.csv, silhouette_info_*.json (n_cells)
+
+# 2. exact silhouette of the cells start:end against all cells (as many ranges as you like)
+scsilhouette silhouette-cells \
+    --embedding silhouette_embedding_*.npy --labels silhouette_labels_*.npy \
+    --start 0 --end 50000 --output scores_0.csv
+
+# 3. from one table of scores (one row per cell, in cell order) write the usual outputs
+scsilhouette silhouette-summary \
+    --cells silhouette_cells_*.csv --info silhouette_info_*.json --scores all_scores.csv \
+    --organ "kidney" --first-author "Lake" --journal "Cell" --year "2023" --dataset-version-id "abc123"
+```
+
+The scores and the three output files (`silhouette_scores_*.csv`, `scsilhouette_cluster_summary_*.csv`,
+`annotation_*.json`) are identical, byte for byte, to those of `compute-silhouette` on the same data
+(tests/test_silhouette_steps.py). This holds for a float32 embedding, which is what CellxGene stores;
+`silhouette-inputs` warns if the embedding is float64, where a range can differ at about the 10th decimal.
+The steps do not filter: they are the `compute-silhouette` path without `--filter-normal`.
+
 ### Generate Summary Visualization with NSForest F-scores
 ```bash
 scsilhouette viz-summary \
