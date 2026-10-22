@@ -132,13 +132,64 @@ def compute_silhouette_command(
         gene_list_path=str(gene_list_path) if gene_list_path else None,
         metric=metric,
         filter_normal=filter_normal,
-        uberon_json=str(uberon)      if uberon      else None,
+        uberon_json=str(uberon)     if uberon      else None,
         disease_json=str(disease_json) if disease_json else None,
         hsapdv_json=str(hsapdv)      if hsapdv      else None,
         save_scores=save_scores,
         save_cluster_summary=save_cluster_summary,
         save_annotation=save_annotation,
     )
+
+
+@app.command("silhouette-inputs")
+def silhouette_inputs_command(
+    h5ad_path: Path = typer.Option(..., help="Path to input h5ad file (only obs and the embedding are read)"),
+    cluster_header: str = typer.Option(..., help="Column name for cell type clusters"),
+    embedding_key: str = typer.Option(..., help="Embedding key (e.g., X_umap)"),
+    organ: str = typer.Option(..., help="Organ/tissue"),
+    first_author: str = typer.Option(..., help="First author"),
+    journal: str = typer.Option(..., help="Journal"),
+    year: str = typer.Option(..., help="Publication year (e.g., 2023)"),
+    dataset_version_id: str = typer.Option(..., help="Dataset version id unique"),
+):
+    """Write the small files silhouette scoring needs: embedding, cluster codes, cell table, info (n_cells)."""
+    compute.extract_silhouette_inputs(str(h5ad_path), cluster_header, embedding_key, organ, first_author,
+                                      journal, year, dataset_version_id)
+
+
+@app.command("silhouette-cells")
+def silhouette_cells_command(
+    embedding: Path = typer.Option(..., help="silhouette_embedding_*.npy from silhouette-inputs"),
+    labels: Path = typer.Option(..., help="silhouette_labels_*.npy from silhouette-inputs"),
+    start: int = typer.Option(..., help="First cell to score"),
+    end: int = typer.Option(..., help="One past the last cell to score"),
+    output: Path = typer.Option(..., help="CSV file for the scores of cells start:end"),
+    metric: str = typer.Option("euclidean", help="Distance metric for silhouette"),
+):
+    """Exact silhouette of the cells start:end against all cells."""
+    compute.score_cells(str(embedding), str(labels), start, end, str(output), metric=metric)
+
+
+@app.command("silhouette-summary")
+def silhouette_summary_command(
+    cells: Path = typer.Option(..., help="silhouette_cells_*.csv from silhouette-inputs"),
+    info: Path = typer.Option(..., help="silhouette_info_*.json from silhouette-inputs"),
+    scores: Path = typer.Option(..., help="CSV with a silhouette_score column, one row per cell, in cell order"),
+    organ: str = typer.Option(..., help="Organ/tissue"),
+    first_author: str = typer.Option(..., help="First author"),
+    journal: str = typer.Option(..., help="Journal"),
+    year: str = typer.Option(..., help="Publication year (e.g., 2023)"),
+    dataset_version_id: str = typer.Option(..., help="Dataset version id unique"),
+    organism: str = typer.Option("human", help="Organism"),
+    disease: str = typer.Option("normal", help="Disease state label for annotation output"),
+    save_scores: bool = typer.Option(True, help="Save per-cell silhouette scores"),
+    save_cluster_summary: bool = typer.Option(True, help="Save cluster summary statistics"),
+    save_annotation: bool = typer.Option(True, help="Save annotation metadata"),
+):
+    """Write the scores, cluster summary and annotation (the outputs of compute-silhouette) from finished scores."""
+    compute.summarize_scores(str(cells), str(info), str(scores), organ, first_author, journal, year,
+                             dataset_version_id, organism=organism, disease=disease, save_scores=save_scores,
+                             save_cluster_summary=save_cluster_summary, save_annotation=save_annotation)
 
 
 @app.command("viz-summary")
